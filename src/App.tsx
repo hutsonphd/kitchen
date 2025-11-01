@@ -1,35 +1,56 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useState, useEffect } from 'react'
 import './App.css'
+import { CalendarProvider, useCalendar } from './contexts/CalendarContext'
+import { Calendar } from './components/Calendar'
+import { AdminPanel } from './components/AdminPanel'
+import type { ViewMode } from './types'
 
-function App() {
-  const [count, setCount] = useState(0)
+const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+function AppContent() {
+  const [viewMode, setViewMode] = useState<ViewMode>('kiosk');
+  const { fetchAllEvents } = useCalendar();
+
+  // Auto-refresh calendar events
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      console.log('Auto-refreshing calendar data...');
+      fetchAllEvents();
+    }, REFRESH_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [fetchAllEvents]);
+
+  // Keyboard shortcut to toggle admin mode (Ctrl+Shift+A)
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        setViewMode(prev => prev === 'kiosk' ? 'admin' : 'kiosk');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="app">
+      {viewMode === 'kiosk' ? (
+        <Calendar onAdminClick={() => setViewMode('admin')} />
+      ) : (
+        <AdminPanel onClose={() => setViewMode('kiosk')} />
+      )}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <CalendarProvider>
+      <AppContent />
+    </CalendarProvider>
+  );
 }
 
 export default App
