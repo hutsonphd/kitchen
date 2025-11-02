@@ -8,7 +8,7 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
-  const { sources, addSource, updateSource, removeSource, uiSettings, updateUISettings, fetchAllEvents, lastSyncTime, loading } = useCalendar();
+  const { sources, addSource, updateSource, removeSource, uiSettings, updateUISettings, fetchAllEvents, lastSyncTime, loading, clearAllEvents, resetEverything } = useCalendar();
   const [showForm, setShowForm] = useState(false);
   const [editingSource, setEditingSource] = useState<CalendarSource | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -54,6 +54,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       await fetchAllEvents(true);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleClearAllEvents = () => {
+    if (confirm('Are you sure you want to clear all cached events? Calendar sources will be kept, and events will re-sync on next refresh.')) {
+      clearAllEvents();
+    }
+  };
+
+  const handleResetEverything = () => {
+    if (confirm('Are you sure you want to reset everything? This will delete all calendar sources and events. This action cannot be undone.')) {
+      resetEverything();
+      setShowForm(false);
+      setEditingSource(null);
     }
   };
 
@@ -195,6 +209,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 <h2>Display Settings</h2>
                 <div className="settings-grid">
                   <div className="setting-item">
+                    <label htmlFor="displayTimezone">Display Timezone</label>
+                    <select
+                      id="displayTimezone"
+                      value={uiSettings.displayTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
+                      onChange={(e) => updateUISettings({
+                        ...uiSettings,
+                        displayTimezone: e.target.value
+                      })}
+                      style={{ minWidth: '15rem' }}
+                    >
+                      <option value="">Auto-detect ({Intl.DateTimeFormat().resolvedOptions().timeZone})</option>
+                      <option value="America/New_York">Eastern Time (US)</option>
+                      <option value="America/Chicago">Central Time (US)</option>
+                      <option value="America/Denver">Mountain Time (US)</option>
+                      <option value="America/Los_Angeles">Pacific Time (US)</option>
+                      <option value="America/Phoenix">Arizona</option>
+                      <option value="America/Anchorage">Alaska</option>
+                      <option value="Pacific/Honolulu">Hawaii</option>
+                      <option value="Europe/London">London</option>
+                      <option value="Europe/Paris">Paris</option>
+                      <option value="Europe/Berlin">Berlin</option>
+                      <option value="Asia/Tokyo">Tokyo</option>
+                      <option value="Asia/Shanghai">Shanghai</option>
+                      <option value="Asia/Dubai">Dubai</option>
+                      <option value="Australia/Sydney">Sydney</option>
+                    </select>
+                  </div>
+
+                  <div className="setting-item">
                     <label htmlFor="todayColumnBg">Today Column Background</label>
                     <input
                       type="color"
@@ -248,6 +291,39 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                       })}
                     />
                     <span className="color-value">{uiSettings.defaultEventTextColor}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Data Management Section */}
+            {!showForm && (
+              <div className="settings-section">
+                <h2>Data Management</h2>
+                <div className="data-management-actions">
+                  <div className="action-item">
+                    <div className="action-description">
+                      <h3>Clear All Events</h3>
+                      <p>Remove all cached events but keep calendar sources. Events will re-sync on next refresh.</p>
+                    </div>
+                    <button
+                      onClick={handleClearAllEvents}
+                      className="btn btn-secondary"
+                    >
+                      Clear Events
+                    </button>
+                  </div>
+                  <div className="action-item">
+                    <div className="action-description">
+                      <h3>Reset Everything</h3>
+                      <p>Delete all calendar sources and events. This will return the app to its initial state.</p>
+                    </div>
+                    <button
+                      onClick={handleResetEverything}
+                      className="btn btn-danger"
+                    >
+                      Reset Everything
+                    </button>
                   </div>
                 </div>
               </div>

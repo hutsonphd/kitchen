@@ -13,7 +13,10 @@ export const storage = {
     try {
       const encrypted = sources.map(source => ({
         ...source,
-        password: CryptoJS.AES.encrypt(source.password, ENCRYPTION_KEY).toString()
+        // Only encrypt password if auth is required
+        password: source.requiresAuth && source.password
+          ? CryptoJS.AES.encrypt(source.password, ENCRYPTION_KEY).toString()
+          : source.password
       }));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(encrypted));
     } catch (error) {
@@ -31,8 +34,14 @@ export const storage = {
       const encrypted = JSON.parse(stored);
       return encrypted.map((source: any) => ({
         ...source,
-        password: CryptoJS.AES.decrypt(source.password, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8),
-        lastFetched: source.lastFetched ? new Date(source.lastFetched) : undefined
+        // Only decrypt password if auth is required and password exists
+        password: source.requiresAuth && source.password
+          ? CryptoJS.AES.decrypt(source.password, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8)
+          : (source.password || ''),
+        lastFetched: source.lastFetched ? new Date(source.lastFetched) : undefined,
+        // Provide defaults for new fields
+        requiresAuth: source.requiresAuth ?? true,
+        sourceType: source.sourceType || 'caldav'
       }));
     } catch (error) {
       console.error('Failed to load calendar sources:', error);

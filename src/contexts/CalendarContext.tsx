@@ -3,6 +3,7 @@ import type { CalendarSource, CalendarEvent, CalendarContextType } from '../type
 import type { UISettings } from '../types/settings.types';
 import { storage } from '../utils/storage';
 import * as syncService from '../services/sync.service';
+import { clearAllEvents as clearEventsFromDB } from '../services/indexeddb.service';
 
 const CalendarContext = createContext<CalendarContextType | undefined>(undefined);
 
@@ -166,6 +167,32 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     setUISettings(settings);
   }, []);
 
+  const clearAllEventsHandler = useCallback(async () => {
+    try {
+      await clearEventsFromDB();
+      setEvents([]);
+      setLastSyncTime(null);
+      setIsCacheData(false);
+    } catch (err) {
+      console.error('Failed to clear all events:', err);
+      setError('Failed to clear events');
+    }
+  }, []);
+
+  const resetEverythingHandler = useCallback(async () => {
+    try {
+      await clearEventsFromDB();
+      storage.clearSources();
+      setSources([]);
+      setEvents([]);
+      setLastSyncTime(null);
+      setIsCacheData(false);
+    } catch (err) {
+      console.error('Failed to reset everything:', err);
+      setError('Failed to reset data');
+    }
+  }, []);
+
   const value: CalendarContextType = {
     sources,
     events,
@@ -180,7 +207,9 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     updateCalendar,
     fetchAllEvents,
     updateUISettings,
-    clearError
+    clearError,
+    clearAllEvents: clearAllEventsHandler,
+    resetEverything: resetEverythingHandler,
   };
 
   return (

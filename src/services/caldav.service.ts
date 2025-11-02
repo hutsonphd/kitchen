@@ -52,6 +52,8 @@ export async function fetchCalendarEvents(
       timeMin: options.startDate.toISOString(),
       timeMax: options.endDate.toISOString(),
       selectedCalendars: selectedCalendarNames,
+      sourceType: source.sourceType,
+      requiresAuth: source.requiresAuth,
     });
 
     // Create a lookup map for calendar colors by URL
@@ -78,6 +80,8 @@ export async function fetchCalendarEvents(
         color: color,
         backgroundColor: color,
         borderColor: color,
+        timezone: event.timezone || undefined,
+        originalTimezone: event.originalTimezone || undefined,
       };
     });
 
@@ -103,6 +107,8 @@ export async function testConnection(
       url: source.url,
       username: source.username,
       password: source.password,
+      sourceType: source.sourceType,
+      requiresAuth: source.requiresAuth,
     });
 
     return response.success ? response.calendars : null;

@@ -21,6 +21,8 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
     username: initialData?.username || '',
     password: initialData?.password || '',
     enabled: initialData?.enabled ?? true,
+    requiresAuth: initialData?.requiresAuth ?? true,
+    sourceType: (initialData?.sourceType || 'caldav') as 'caldav' | 'ics',
   });
 
   const [calendars, setCalendars] = useState<Calendar[]>(initialData?.calendars || []);
@@ -28,8 +30,11 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    const checked = 'checked' in e.target ? e.target.checked : undefined;
+    const type = 'type' in e.target ? e.target.type : 'select';
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
@@ -98,8 +103,13 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.url || !formData.username || !formData.password) {
-      setError('All fields are required');
+    if (!formData.name || !formData.url) {
+      setError('Name and URL are required');
+      return;
+    }
+
+    if (formData.requiresAuth && (!formData.username || !formData.password)) {
+      setError('Username and password are required for authenticated sources');
       return;
     }
 
@@ -132,43 +142,78 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
       </div>
 
       <div className="form-group">
-        <label htmlFor="url">CalDAV URL</label>
+        <label htmlFor="sourceType">Source Type</label>
+        <select
+          id="sourceType"
+          name="sourceType"
+          value={formData.sourceType}
+          onChange={handleChange}
+        >
+          <option value="caldav">CalDAV Server</option>
+          <option value="ics">ICS/iCal URL</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="url">
+          {formData.sourceType === 'ics' ? 'ICS URL' : 'CalDAV URL'}
+        </label>
         <input
           type="url"
           id="url"
           name="url"
           value={formData.url}
           onChange={handleChange}
-          placeholder="https://caldav.example.com/calendar"
+          placeholder={
+            formData.sourceType === 'ics'
+              ? 'https://example.com/calendar.ics'
+              : 'https://caldav.example.com/calendar'
+          }
           required
         />
       </div>
 
-      <div className="form-group">
-        <label htmlFor="username">Username</label>
-        <input
-          type="text"
-          id="username"
-          name="username"
-          value={formData.username}
-          onChange={handleChange}
-          placeholder="username"
-          required
-        />
+      <div className="form-group checkbox-group">
+        <label>
+          <input
+            type="checkbox"
+            name="requiresAuth"
+            checked={formData.requiresAuth}
+            onChange={handleChange}
+          />
+          <span>Requires Authentication</span>
+        </label>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="password">Password</label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          value={formData.password}
-          onChange={handleChange}
-          placeholder="••••••••"
-          required
-        />
-      </div>
+      {formData.requiresAuth && (
+        <>
+          <div className="form-group">
+            <label htmlFor="username">Username</label>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              placeholder="username"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="••••••••"
+              required
+            />
+          </div>
+        </>
+      )}
 
       <div className="form-group checkbox-group">
         <label>
@@ -223,7 +268,11 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
         <button
           type="button"
           onClick={handleTestConnection}
-          disabled={testing || !formData.url || !formData.username || !formData.password}
+          disabled={
+            testing ||
+            !formData.url ||
+            (formData.requiresAuth && (!formData.username || !formData.password))
+          }
           className="btn btn-secondary"
         >
           {testing ? 'Testing...' : calendars.length > 0 ? 'Refresh Calendars' : 'Test Connection'}

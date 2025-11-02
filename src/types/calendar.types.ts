@@ -12,10 +12,12 @@ export interface Calendar {
 export interface CalendarSource {
   id: string;
   name: string; // Source/account name
-  url: string; // CalDAV server URL
+  url: string; // CalDAV server URL or .ics URL
   username: string;
   password: string;
   enabled: boolean;
+  requiresAuth: boolean; // Whether this source needs authentication
+  sourceType: 'caldav' | 'ics'; // Type of calendar source
   calendars: Calendar[]; // Individual calendars from this source
   lastFetched?: Date;
   fetchError?: string;
@@ -33,6 +35,8 @@ export interface CalendarEvent {
   color: string;
   backgroundColor?: string;
   borderColor?: string;
+  timezone?: string; // IANA timezone for the event (e.g., 'America/New_York')
+  originalTimezone?: string; // Original timezone from ICS/CalDAV source
 }
 
 export interface CalendarContextType {
@@ -50,6 +54,8 @@ export interface CalendarContextType {
   fetchAllEvents: (forceRefresh?: boolean) => Promise<void>;
   updateUISettings: (settings: UISettings) => void;
   clearError: () => void;
+  clearAllEvents: () => Promise<void>;
+  resetEverything: () => Promise<void>;
 }
 
 export interface CalDAVCredentials {

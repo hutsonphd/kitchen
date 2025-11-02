@@ -11,6 +11,9 @@ export interface UISettings {
   // Default event colors (used when calendar doesn't specify)
   defaultEventBgColor: string;
   defaultEventTextColor: string;
+
+  // Timezone settings
+  displayTimezone?: string; // IANA timezone (e.g., 'America/New_York'), auto-detected if not set
 }
 
 export const DEFAULT_UI_SETTINGS: UISettings = {
