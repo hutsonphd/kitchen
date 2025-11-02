@@ -9,7 +9,7 @@ services:
     container_name: kitchen-backend
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "9899:3001"
     environment:
       - NODE_ENV=production
       - PORT=3001
@@ -30,7 +30,7 @@ services:
     container_name: kitchen-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "9898:80"
     depends_on:
       backend:
         condition: service_healthy
