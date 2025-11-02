@@ -6,6 +6,7 @@ export interface CalendarSource {
   password: string;
   color: string;
   enabled: boolean;
+  selectedCalendars?: string[]; // Array of calendar display names to fetch
   lastFetched?: Date;
   fetchError?: string;
 }

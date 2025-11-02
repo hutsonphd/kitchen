@@ -16,11 +16,13 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
     password: initialData?.password || '',
     color: initialData?.color || '#3788d8',
     enabled: initialData?.enabled ?? true,
+    selectedCalendars: initialData?.selectedCalendars || [],
   });
 
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [availableCalendars, setAvailableCalendars] = useState<{ displayName: string; url: string }[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -38,9 +40,17 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
     setError(null);
 
     try {
-      const result = await testConnection(formData);
-      setTestResult(result ? 'success' : 'error');
-      if (!result) {
+      const calendars = await testConnection(formData);
+      if (calendars && calendars.length > 0) {
+        setTestResult('success');
+        setAvailableCalendars(calendars);
+        // Auto-select all calendars by default
+        setFormData(prev => ({
+          ...prev,
+          selectedCalendars: calendars.map(cal => cal.displayName)
+        }));
+      } else {
+        setTestResult('error');
         setError('Connection test failed. Please check your credentials and URL.');
       }
     } catch (err) {
@@ -49,6 +59,16 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
     } finally {
       setTesting(false);
     }
+  };
+
+  const handleCalendarToggle = (calendarName: string) => {
+    setFormData(prev => {
+      const selected = prev.selectedCalendars || [];
+      const newSelected = selected.includes(calendarName)
+        ? selected.filter(name => name !== calendarName)
+        : [...selected, calendarName];
+      return { ...prev, selectedCalendars: newSelected };
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -151,6 +171,27 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
 
       {error && <div className="error-message">{error}</div>}
       {testResult === 'success' && <div className="success-message">Connection successful!</div>}
+
+      {availableCalendars.length > 0 && (
+        <div className="form-group">
+          <label>Select Calendars to Display</label>
+          <div className="calendar-list">
+            {availableCalendars.map((calendar) => (
+              <label key={calendar.url} className="calendar-checkbox">
+                <input
+                  type="checkbox"
+                  checked={formData.selectedCalendars?.includes(calendar.displayName)}
+                  onChange={() => handleCalendarToggle(calendar.displayName)}
+                />
+                <span>{calendar.displayName}</span>
+              </label>
+            ))}
+          </div>
+          <div className="calendar-count">
+            {formData.selectedCalendars?.length || 0} of {availableCalendars.length} calendars selected
+          </div>
+        </div>
+      )}
 
       <div className="form-actions">
         <button

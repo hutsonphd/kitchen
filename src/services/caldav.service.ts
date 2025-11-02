@@ -1,165 +1,65 @@
-import { createDAVClient } from 'tsdav';
-import type { DAVClient } from 'tsdav';
-import ICAL from 'ical.js';
 import type { CalendarSource, CalendarEvent, FetchEventsOptions } from '../types';
 
+const PROXY_URL = import.meta.env.VITE_PROXY_URL || '';
+
 /**
- * Create a DAV client with authentication
+ * Make a request to the CalDAV proxy server
  */
-async function createAuthenticatedClient(source: CalendarSource): Promise<DAVClient> {
+async function proxyRequest<T>(endpoint: string, data: any): Promise<T> {
   try {
-    const client = await createDAVClient({
-      serverUrl: source.url,
-      credentials: {
-        username: source.username,
-        password: source.password,
+    const response = await fetch(`${PROXY_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      authMethod: 'Basic',
-      defaultAccountType: 'caldav',
+      body: JSON.stringify(data),
     });
 
-    return client;
-  } catch (error) {
-    console.error('Failed to create DAV client:', error);
-    throw new Error(`Failed to connect to ${source.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-/**
- * Parse iCalendar data and convert to CalendarEvent objects
- */
-function parseICalendarData(
-  icalData: string,
-  calendarId: string,
-  color: string,
-  startDate: Date,
-  endDate: Date
-): CalendarEvent[] {
-  try {
-    const jcalData = ICAL.parse(icalData);
-    const comp = new ICAL.Component(jcalData);
-    const vevents = comp.getAllSubcomponents('vevent');
-
-    const events: CalendarEvent[] = [];
-
-    for (const vevent of vevents) {
-      const event = new ICAL.Event(vevent);
-
-      // Get event times
-      const eventStart = event.startDate.toJSDate();
-      const eventEnd = event.endDate.toJSDate();
-
-      // Filter events within date range
-      if (eventEnd < startDate || eventStart > endDate) {
-        continue;
-      }
-
-      // Handle recurring events
-      if (event.isRecurring()) {
-        const expand = event.iterator();
-        let next;
-
-        while ((next = expand.next())) {
-          const occurrenceStart = next.toJSDate();
-          const duration = eventEnd.getTime() - eventStart.getTime();
-          const occurrenceEnd = new Date(occurrenceStart.getTime() + duration);
-
-          // Only include occurrences within our date range
-          if (occurrenceStart >= startDate && occurrenceStart <= endDate) {
-            events.push({
-              id: `${event.uid}-${occurrenceStart.getTime()}`,
-              title: event.summary || 'Untitled Event',
-              start: occurrenceStart,
-              end: occurrenceEnd,
-              allDay: !event.startDate.isDate ? false : true,
-              description: event.description || undefined,
-              location: event.location || undefined,
-              calendarId,
-              color,
-              backgroundColor: color,
-              borderColor: color,
-            });
-          }
-
-          // Stop after reasonable number of occurrences to prevent infinite loops
-          if (occurrenceStart > endDate) break;
-        }
-      } else {
-        // Non-recurring event
-        events.push({
-          id: event.uid,
-          title: event.summary || 'Untitled Event',
-          start: eventStart,
-          end: eventEnd,
-          allDay: !event.startDate.isDate ? false : true,
-          description: event.description || undefined,
-          location: event.location || undefined,
-          calendarId,
-          color,
-          backgroundColor: color,
-          borderColor: color,
-        });
-      }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    return events;
+    return await response.json();
   } catch (error) {
-    console.error('Failed to parse iCalendar data:', error);
-    throw new Error('Failed to parse calendar data');
+    console.error('Proxy request failed:', error);
+    throw new Error(`Proxy request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 /**
- * Fetch calendar events from a CalDAV source
+ * Fetch calendar events from a CalDAV source via proxy
  */
 export async function fetchCalendarEvents(
   source: CalendarSource,
   options: FetchEventsOptions
 ): Promise<CalendarEvent[]> {
   try {
-    const client = await createAuthenticatedClient(source);
+    const response = await proxyRequest<{ events: any[] }>('/api/caldav/fetch-events', {
+      url: source.url,
+      username: source.username,
+      password: source.password,
+      timeMin: options.startDate.toISOString(),
+      timeMax: options.endDate.toISOString(),
+      selectedCalendars: source.selectedCalendars,
+    });
 
-    // Fetch calendars
-    const calendars = await client.fetchCalendars();
+    // Transform events from proxy to match CalendarEvent format
+    const events: CalendarEvent[] = response.events.map((event: any) => ({
+      id: event.id,
+      title: event.title,
+      start: new Date(event.start),
+      end: new Date(event.end),
+      allDay: event.allDay || false,
+      description: event.description || undefined,
+      location: event.location || undefined,
+      calendarId: source.id,
+      color: source.color,
+      backgroundColor: source.color,
+      borderColor: source.color,
+    }));
 
-    if (!calendars || calendars.length === 0) {
-      console.warn(`No calendars found for ${source.name}`);
-      return [];
-    }
-
-    // Fetch calendar objects (events) from all calendars
-    const allEvents: CalendarEvent[] = [];
-
-    for (const calendar of calendars) {
-      try {
-        const calendarObjects = await client.fetchCalendarObjects({
-          calendar: calendar,
-          timeRange: {
-            start: options.startDate.toISOString(),
-            end: options.endDate.toISOString(),
-          },
-        });
-
-        // Parse each calendar object
-        for (const obj of calendarObjects) {
-          if (obj.data) {
-            const events = parseICalendarData(
-              obj.data,
-              source.id,
-              source.color,
-              options.startDate,
-              options.endDate
-            );
-            allEvents.push(...events);
-          }
-        }
-      } catch (error) {
-        console.error(`Failed to fetch objects from calendar ${calendar.displayName}:`, error);
-        // Continue with other calendars even if one fails
-      }
-    }
-
-    return allEvents;
+    return events;
   } catch (error) {
     console.error(`Failed to fetch events from ${source.name}:`, error);
     throw error;
@@ -167,23 +67,25 @@ export async function fetchCalendarEvents(
 }
 
 /**
- * Test CalDAV connection with provided credentials
+ * Test CalDAV connection with provided credentials via proxy
+ * Returns the list of available calendars on success, or null on failure
  */
-export async function testConnection(source: Omit<CalendarSource, 'id' | 'enabled' | 'color'>): Promise<boolean> {
+export async function testConnection(
+  source: Omit<CalendarSource, 'id' | 'enabled' | 'color'>
+): Promise<{ displayName: string; url: string }[] | null> {
   try {
-    const testSource: CalendarSource = {
-      ...source,
-      id: 'test',
-      enabled: true,
-      color: '#000000'
-    };
+    const response = await proxyRequest<{
+      success: boolean;
+      calendars: { displayName: string; url: string }[]
+    }>('/api/caldav/test-connection', {
+      url: source.url,
+      username: source.username,
+      password: source.password,
+    });
 
-    const client = await createAuthenticatedClient(testSource);
-    const calendars = await client.fetchCalendars();
-
-    return calendars && calendars.length > 0;
+    return response.success ? response.calendars : null;
   } catch (error) {
     console.error('Connection test failed:', error);
-    return false;
+    return null;
   }
 }

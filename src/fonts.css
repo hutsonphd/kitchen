@@ -1,0 +1,411 @@
+/* src/styles/fonts.css */
+
+/* Bear Sans UI - Modern Sans-serif for UI */
+@font-face {
+  font-family: 'Bear Sans';
+  src: url('/fonts/custom/bearsans/bearsansui-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bear Sans';
+  src: url('/fonts/custom/bearsans/bearsansui-medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bear Sans';
+  src: url('/fonts/custom/bearsans/bearsansui-bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bear Sans';
+  src: url('/fonts/custom/bearsans/bearsansui-mediumitalic.otf') format('opentype');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bear Sans';
+  src: url('/fonts/custom/bearsans/bearsansui-bolditalic.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Bear Sans Headline - For headings */
+@font-face {
+  font-family: 'Bear Sans Headline';
+  src: url('/fonts/custom/bearsans/bearsansuiheadline-medium.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bear Sans Headline';
+  src: url('/fonts/custom/bearsans/bearsansuiheadline-bold.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Bookerly - Reading optimized serif */
+@font-face {
+  font-family: 'Bookerly';
+  src: url('/fonts/custom/bookerly-cufonfonts/Bookerly.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bookerly';
+  src: url('/fonts/custom/bookerly-cufonfonts/Bookerly Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bookerly';
+  src: url('/fonts/custom/bookerly-cufonfonts/Bookerly Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bookerly';
+  src: url('/fonts/custom/bookerly-cufonfonts/Bookerly Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bookerly';
+  src: url('/fonts/custom/bookerly-cufonfonts/Bookerly Bold Italic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Bookerly Display - For larger text */
+@font-face {
+  font-family: 'Bookerly Display';
+  src: url('/fonts/custom/bookerly-cufonfonts/Bookerly Display.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bookerly Display';
+  src: url('/fonts/custom/bookerly-cufonfonts/Bookerly Display Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Filson Pro - Professional sans-serif */
+@font-face {
+  font-family: 'Filson Pro';
+  src: url('/fonts/custom/filson-pro/FilsonProThin.otf') format('opentype');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Filson Pro';
+  src: url('/fonts/custom/filson-pro/FilsonProLight.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Filson Pro';
+  src: url('/fonts/custom/filson-pro/FilsonProBook.otf') format('opentype');
+  font-weight: 350;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Filson Pro';
+  src: url('/fonts/custom/filson-pro/FilsonProRegular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Filson Pro';
+  src: url('/fonts/custom/filson-pro/FilsonProMedium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Filson Pro';
+  src: url('/fonts/custom/filson-pro/FilsonProBold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Filson Pro';
+  src: url('/fonts/custom/filson-pro/FilsonProHeavy.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Filson Pro';
+  src: url('/fonts/custom/filson-pro/FilsonProBlack.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Hack - Monospace coding font */
+@font-face {
+  font-family: 'Hack';
+  src: url('/fonts/custom/hack/Hack-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Hack';
+  src: url('/fonts/custom/hack/Hack-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Hack';
+  src: url('/fonts/custom/hack/Hack-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Hack';
+  src: url('/fonts/custom/hack/Hack-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Jost - Geometric sans-serif */
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/custom/jost/Jost-Thin.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/custom/jost/Jost-ExtraLight.ttf') format('truetype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/custom/jost/Jost-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/custom/jost/Jost-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/custom/jost/Jost-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/custom/jost/Jost-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/custom/jost/Jost-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/custom/jost/Jost-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jost';
+  src: url('/fonts/custom/jost/Jost-Black.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* OpenDyslexic - Accessibility font */
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/custom/opendyslexic/OpenDyslexic-Regular.woff2') format('woff2'),
+       url('/fonts/custom/opendyslexic/OpenDyslexic-Regular.woff') format('woff'),
+       url('/fonts/custom/opendyslexic/OpenDyslexic-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/custom/opendyslexic/OpenDyslexic-Bold.woff2') format('woff2'),
+       url('/fonts/custom/opendyslexic/OpenDyslexic-Bold.woff') format('woff'),
+       url('/fonts/custom/opendyslexic/OpenDyslexic-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/custom/opendyslexic/OpenDyslexic-Italic.woff2') format('woff2'),
+       url('/fonts/custom/opendyslexic/OpenDyslexic-Italic.woff') format('woff'),
+       url('/fonts/custom/opendyslexic/OpenDyslexic-Italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Outfit - Modern geometric sans-serif */
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/custom/outfit/Outfit-Thin.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/custom/outfit/Outfit-ExtraLight.ttf') format('truetype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/custom/outfit/Outfit-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/custom/outfit/Outfit-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/custom/outfit/Outfit-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/custom/outfit/Outfit-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/custom/outfit/Outfit-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/custom/outfit/Outfit-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/custom/outfit/Outfit-Black.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Preload critical fonts for better performance */
+.font-preload {
+  position: absolute;
+  left: -9999px;
+  visibility: hidden;
+}
+
+.font-preload::before {
+  content: '';
+  font-family: 'Bear Sans';
+  font-weight: 400;
+}
+
+.font-preload::after {
+  content: '';
+  font-family: 'Hack';
+  font-weight: 400;
+}

@@ -4,7 +4,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { useCalendar } from '../contexts/CalendarContext';
-import { CalendarLegend } from './CalendarLegend';
+import { useCalendarHeight } from '../hooks/useCalendarHeight';
 
 interface CalendarProps {
   onAdminClick: () => void;
@@ -13,6 +13,7 @@ interface CalendarProps {
 export const Calendar: React.FC<CalendarProps> = ({ onAdminClick }) => {
   const { sources, events, loading, error, fetchAllEvents } = useCalendar();
   const calendarRef = useRef<FullCalendar>(null);
+  const { calendarHeight, slotDuration, slotHeight } = useCalendarHeight();
 
   // Fetch events on mount and when sources change
   useEffect(() => {
@@ -58,19 +59,14 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
 
   return (
     <div className="calendar-container">
-      <div className="calendar-header">
-        <h1>Calendar</h1>
-        <div className="header-actions">
-          <CalendarLegend sources={sources} />
-          <button
-            onClick={onAdminClick}
-            className="btn btn-secondary admin-button"
-            title="Open settings (or press Ctrl+Shift+A)"
-          >
-            Settings
-          </button>
-        </div>
-      </div>
+      {/* Floating settings button */}
+      <button
+        onClick={onAdminClick}
+        className="floating-settings-button"
+        title="Open settings (or press Ctrl+Shift+A)"
+      >
+        ⚙️
+      </button>
 
       {error && (
         <div className="error-banner">
@@ -84,34 +80,33 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
         </div>
       )}
 
-      <div className="calendar-wrapper">
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-          }}
-          firstDay={0} // Sunday
-          slotMinTime="06:00:00"
-          slotMaxTime="22:00:00"
-          allDaySlot={true}
-          expandRows={true}
-          height="auto"
-          events={fullCalendarEvents}
-          eventClick={handleEventClick}
-          nowIndicator={true}
-          weekNumbers={false}
-          dayMaxEvents={true}
-          eventTimeFormat={{
-            hour: '2-digit',
-            minute: '2-digit',
-            meridiem: 'short'
-          }}
-        />
-      </div>
+      <style>
+        {`.fc .fc-timegrid-slot { height: ${slotHeight}px !important; }`}
+      </style>
+
+      <FullCalendar
+        ref={calendarRef}
+        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+        initialView="timeGridWeek"
+        headerToolbar={false}
+        firstDay={0} // Sunday
+        slotMinTime="06:00:00"
+        slotMaxTime="22:00:00"
+        slotDuration={slotDuration}
+        allDaySlot={true}
+        expandRows={false}
+        height={calendarHeight}
+        events={fullCalendarEvents}
+        eventClick={handleEventClick}
+        nowIndicator={true}
+        weekNumbers={false}
+        dayMaxEvents={true}
+        eventTimeFormat={{
+          hour: '2-digit',
+          minute: '2-digit',
+          meridiem: 'short'
+        }}
+      />
     </div>
   );
 };
