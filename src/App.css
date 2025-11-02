@@ -63,15 +63,16 @@
   border-right: none !important;
 }
 
-.month-year-title {
+h1.month-year-title {
   margin: 0;
   font-size: 2rem;
-  font-weight: 400;
-  color: var(--color-text-primary);
+  font-weight: 400 !important;
+  color: var(--color-text-primary) !important;
+  font-family: 'Bear Sans', sans-serif !important;
 }
 
 .month-year-title strong {
-  font-weight: 700;
+  font-weight: 900;
 }
 
 .header-controls {
@@ -697,7 +698,14 @@
 .fc-day-today .fc-daygrid-day-number,
 .fc-day-today .fc-col-header-cell-cushion,
 .fc-day-today .day-header-content {
-  color: var(--color-today-text);
+  color: var(--color-text-primary) !important;
+}
+
+.fc-daygrid-day-number,
+.fc-col-header-cell-cushion,
+.day-header-content {
+  color: var(--color-text-secondary) !important;
+  font-family: 'Bear Sans Headline', sans-serif;
 }
 
 .fc-theme-standard .fc-scrollgrid {
