@@ -11,7 +11,7 @@ export const BACKGROUND_SYNC_TIMEOUT = 15 * 1000; // 15 seconds for background u
 /**
  * Check if a sync is needed for the given sources
  */
-export async function shouldSync(sources: CalendarSource[], forceRefresh: boolean = false): Promise<boolean> {
+export async function shouldSync(_sources: CalendarSource[], forceRefresh: boolean = false): Promise<boolean> {
   if (forceRefresh) {
     return true;
   }

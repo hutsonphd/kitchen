@@ -8,7 +8,7 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
-  const { sources, addSource, updateSource, removeSource } = useCalendar();
+  const { sources, addSource, updateSource, removeSource, uiSettings, updateUISettings } = useCalendar();
   const [showForm, setShowForm] = useState(false);
   const [editingSource, setEditingSource] = useState<CalendarSource | null>(null);
 
@@ -147,9 +147,96 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 ))}
               </div>
             )}
+
+            {/* Display Settings Section */}
+            {!showForm && (
+              <div className="settings-section">
+                <h2>Display Settings</h2>
+                <div className="settings-grid">
+                  <div className="setting-item">
+                    <label htmlFor="todayColumnBg">Today Column Background</label>
+                    <input
+                      type="color"
+                      id="todayColumnBg"
+                      value={rgbaToHex(uiSettings.todayColumnBgColor)}
+                      onChange={(e) => updateUISettings({
+                        ...uiSettings,
+                        todayColumnBgColor: hexToRgba(e.target.value, 0.15)
+                      })}
+                    />
+                    <span className="color-value">{uiSettings.todayColumnBgColor}</span>
+                  </div>
+
+                  <div className="setting-item">
+                    <label htmlFor="todayColumnText">Today Column Text Color</label>
+                    <input
+                      type="color"
+                      id="todayColumnText"
+                      value={uiSettings.todayColumnTextColor}
+                      onChange={(e) => updateUISettings({
+                        ...uiSettings,
+                        todayColumnTextColor: e.target.value
+                      })}
+                    />
+                    <span className="color-value">{uiSettings.todayColumnTextColor}</span>
+                  </div>
+
+                  <div className="setting-item">
+                    <label htmlFor="defaultEventBg">Default Event Background</label>
+                    <input
+                      type="color"
+                      id="defaultEventBg"
+                      value={uiSettings.defaultEventBgColor}
+                      onChange={(e) => updateUISettings({
+                        ...uiSettings,
+                        defaultEventBgColor: e.target.value
+                      })}
+                    />
+                    <span className="color-value">{uiSettings.defaultEventBgColor}</span>
+                  </div>
+
+                  <div className="setting-item">
+                    <label htmlFor="defaultEventText">Default Event Text Color</label>
+                    <input
+                      type="color"
+                      id="defaultEventText"
+                      value={uiSettings.defaultEventTextColor}
+                      onChange={(e) => updateUISettings({
+                        ...uiSettings,
+                        defaultEventTextColor: e.target.value
+                      })}
+                    />
+                    <span className="color-value">{uiSettings.defaultEventTextColor}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
     </div>
   );
 };
+
+// Helper functions to convert between rgba and hex
+function rgbaToHex(rgba: string): string {
+  // Extract RGB values from rgba string
+  const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) return '#3788d8'; // Default color
+
+  const r = parseInt(match[1]);
+  const g = parseInt(match[2]);
+  const b = parseInt(match[3]);
+
+  return '#' + [r, g, b].map(x => {
+    const hex = x.toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  }).join('');
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}

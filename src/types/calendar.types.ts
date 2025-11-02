@@ -1,3 +1,5 @@
+import type { UISettings } from './settings.types';
+
 export interface Calendar {
   id: string;
   name: string; // User-defined or from CalDAV
@@ -40,11 +42,13 @@ export interface CalendarContextType {
   error: string | null;
   lastSyncTime: Date | null;
   isCacheData: boolean;
+  uiSettings: UISettings;
   addSource: (source: Omit<CalendarSource, 'id'>) => void;
   updateSource: (id: string, source: Partial<CalendarSource>) => void;
   removeSource: (id: string) => void;
   updateCalendar: (sourceId: string, calendarId: string, updates: Partial<Calendar>) => void;
   fetchAllEvents: (forceRefresh?: boolean) => Promise<void>;
+  updateUISettings: (settings: UISettings) => void;
   clearError: () => void;
 }
 

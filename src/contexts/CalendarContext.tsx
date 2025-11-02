@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { CalendarSource, CalendarEvent, CalendarContextType } from '../types';
+import type { UISettings } from '../types/settings.types';
 import { storage } from '../utils/storage';
 import * as syncService from '../services/sync.service';
 
@@ -12,6 +13,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [error, setError] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isCacheData, setIsCacheData] = useState(false);
+  const [uiSettings, setUISettings] = useState<UISettings>(storage.loadUISettings());
 
   // Load calendar sources from localStorage on mount
   useEffect(() => {
@@ -25,6 +27,11 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
       storage.saveSources(sources);
     }
   }, [sources]);
+
+  // Save UI settings to localStorage whenever they change
+  useEffect(() => {
+    storage.saveUISettings(uiSettings);
+  }, [uiSettings]);
 
   const addSource = useCallback((source: Omit<CalendarSource, 'id'>) => {
     const newSource: CalendarSource = {
@@ -155,6 +162,10 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     setError(null);
   }, []);
 
+  const updateUISettings = useCallback((settings: UISettings) => {
+    setUISettings(settings);
+  }, []);
+
   const value: CalendarContextType = {
     sources,
     events,
@@ -162,11 +173,13 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     error,
     lastSyncTime,
     isCacheData,
+    uiSettings,
     addSource,
     updateSource,
     removeSource,
     updateCalendar,
     fetchAllEvents,
+    updateUISettings,
     clearError
   };
 

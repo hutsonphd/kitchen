@@ -42,6 +42,10 @@
   --color-scrollbar-thumb: #888;
   --color-scrollbar-thumb-hover: #555;
 
+  /* ===== Today Column Colors ===== */
+  --color-today-bg: rgba(55, 136, 216, 0.15);
+  --color-today-text: #ffffff;
+
   /* ===== Overlays & Shadows ===== */
   --overlay-light: #000000e6;
   --overlay-medium: #000000b3;

@@ -26,10 +26,16 @@ function formatTimeAgo(date: Date): string {
 }
 
 export const Calendar: React.FC<CalendarProps> = ({ onAdminClick }) => {
-  const { sources, events, loading, error, lastSyncTime, isCacheData, fetchAllEvents } = useCalendar();
+  const { sources, events, loading, error, lastSyncTime, isCacheData, fetchAllEvents, uiSettings } = useCalendar();
   const calendarRef = useRef<FullCalendar>(null);
   const { calendarHeight, slotDuration, slotHeight } = useCalendarHeight();
   const [monthYear, setMonthYear] = useState('');
+
+  // Apply UI settings to CSS variables
+  useEffect(() => {
+    document.documentElement.style.setProperty('--color-today-bg', uiSettings.todayColumnBgColor);
+    document.documentElement.style.setProperty('--color-today-text', uiSettings.todayColumnTextColor);
+  }, [uiSettings]);
 
   // Fetch events on mount and when sources change
   useEffect(() => {
@@ -90,8 +96,9 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
     start: event.start,
     end: event.end,
     allDay: event.allDay,
-    backgroundColor: event.backgroundColor,
-    borderColor: event.borderColor,
+    backgroundColor: event.backgroundColor || uiSettings.defaultEventBgColor,
+    borderColor: event.borderColor || uiSettings.defaultEventBgColor,
+    textColor: uiSettings.defaultEventTextColor,
     extendedProps: {
       description: event.description,
       location: event.location,
