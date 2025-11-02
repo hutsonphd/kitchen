@@ -370,6 +370,8 @@
   border: 0px solid var(--color-border);
   border-radius: var(--border-radius-sm);
   font-size: 0.9rem;
+  background: #1b1b1b;
+  color: white;
 }
 
 .calendar-name-input:focus {
@@ -413,6 +415,8 @@
   border: 0px solid var(--color-border);
   border-radius: var(--border-radius-sm);
   font-size: 0.9rem;
+  background: #1b1b1b;
+  color: white;
 }
 
 .form-group input:focus {
@@ -450,6 +454,8 @@
   width: 18px;
   height: 18px;
   cursor: pointer;
+  background: #1b1b1b;
+  color: white;
 }
 
 .form-actions {
