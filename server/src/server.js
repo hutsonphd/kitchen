@@ -142,6 +142,8 @@ app.post('/api/caldav/fetch-events', async (req, res) => {
                 allDay: event.startDate?.isDate || false,
                 description: event.description || '',
                 location: event.location || '',
+                calendarUrl: calendar.url,
+                calendarName: calendar.displayName || 'Unnamed Calendar',
               });
             }
           } catch (parseError) {

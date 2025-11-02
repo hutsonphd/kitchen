@@ -7,9 +7,9 @@ interface CalendarDimensions {
 }
 
 // Constants for height calculations
-const CONTAINER_PADDING = 48; // 1.5rem top + 1.5rem bottom (assuming 1rem = 16px)
+const HEADER_HEIGHT = 96; // Custom header height (includes padding)
 const MIN_SLOT_HEIGHT = 40; // Minimum height per time slot in pixels
-const ALL_DAY_ROW = 30; // Height of all-day event row
+const FC_CHROME_HEIGHT = 80; // FullCalendar internal chrome (headers, all-day slot, scrollbars, etc.)
 
 // Time range: 6am to 10pm = 16 hours = 960 minutes
 const TOTAL_MINUTES = 16 * 60;
@@ -30,12 +30,9 @@ export const useCalendarHeight = (): CalendarDimensions => {
 
   useEffect(() => {
     const calculateDimensions = () => {
-      // Calculate available height for the calendar (both headers removed, single container)
+      // Calculate available height for the calendar (subtract custom header)
       const viewportHeight = window.innerHeight;
-      const availableHeight =
-        viewportHeight -
-        CONTAINER_PADDING -
-        ALL_DAY_ROW;
+      const availableHeight = viewportHeight - HEADER_HEIGHT;
 
       // Find the largest slot duration that fits without overflow
       let optimalSlotMinutes = 15; // Default to smallest
@@ -51,8 +48,10 @@ export const useCalendarHeight = (): CalendarDimensions => {
       }
 
       // Calculate dynamic slot height based on available space
+      // Subtract FullCalendar chrome to ensure all slots fit with equal height
       const numberOfSlots = TOTAL_MINUTES / optimalSlotMinutes;
-      const calculatedSlotHeight = availableHeight / numberOfSlots;
+      const heightForSlots = availableHeight - FC_CHROME_HEIGHT;
+      const calculatedSlotHeight = Math.floor(heightForSlots / numberOfSlots);
 
       // Convert minutes to FullCalendar time format (HH:MM:SS)
       const hours = Math.floor(optimalSlotMinutes / 60);
@@ -70,7 +69,7 @@ export const useCalendarHeight = (): CalendarDimensions => {
     calculateDimensions();
 
     // Debounced resize handler
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     const handleResize = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(calculateDimensions, 300);

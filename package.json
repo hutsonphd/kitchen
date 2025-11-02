@@ -17,8 +17,10 @@
     "@fullcalendar/interaction": "^6.1.19",
     "@fullcalendar/react": "^6.1.19",
     "@fullcalendar/timegrid": "^6.1.19",
+    "@tabler/icons-react": "^3.35.0",
     "crypto-js": "^4.2.0",
     "ical.js": "^2.2.1",
+    "idb": "^8.0.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "tsdav": "^2.1.6"

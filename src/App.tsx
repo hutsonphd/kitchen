@@ -5,18 +5,18 @@ import { Calendar } from './components/Calendar'
 import { AdminPanel } from './components/AdminPanel'
 import type { ViewMode } from './types'
 
-const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+const SYNC_CHECK_INTERVAL = 60 * 1000; // Check every 1 minute
 
 function AppContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('kiosk');
   const { fetchAllEvents } = useCalendar();
 
-  // Auto-refresh calendar events
+  // Smart sync: Check every minute, but only sync if cache is stale (> 5 min)
   useEffect(() => {
     const intervalId = setInterval(() => {
-      console.log('Auto-refreshing calendar data...');
-      fetchAllEvents();
-    }, REFRESH_INTERVAL);
+      console.log('Checking if sync needed...');
+      fetchAllEvents(false); // Will only sync if cache is stale
+    }, SYNC_CHECK_INTERVAL);
 
     return () => clearInterval(intervalId);
   }, [fetchAllEvents]);

@@ -1,12 +1,20 @@
-export interface CalendarSource {
+export interface Calendar {
   id: string;
-  name: string;
-  url: string;
-  username: string;
-  password: string;
+  name: string; // User-defined or from CalDAV
+  calendarUrl: string; // Individual calendar URL from CalDAV
   color: string;
   enabled: boolean;
-  selectedCalendars?: string[]; // Array of calendar display names to fetch
+  sourceId: string; // Reference to parent CalendarSource
+}
+
+export interface CalendarSource {
+  id: string;
+  name: string; // Source/account name
+  url: string; // CalDAV server URL
+  username: string;
+  password: string;
+  enabled: boolean;
+  calendars: Calendar[]; // Individual calendars from this source
   lastFetched?: Date;
   fetchError?: string;
 }
@@ -30,10 +38,13 @@ export interface CalendarContextType {
   events: CalendarEvent[];
   loading: boolean;
   error: string | null;
+  lastSyncTime: Date | null;
+  isCacheData: boolean;
   addSource: (source: Omit<CalendarSource, 'id'>) => void;
   updateSource: (id: string, source: Partial<CalendarSource>) => void;
   removeSource: (id: string) => void;
-  fetchAllEvents: () => Promise<void>;
+  updateCalendar: (sourceId: string, calendarId: string, updates: Partial<Calendar>) => void;
+  fetchAllEvents: (forceRefresh?: boolean) => Promise<void>;
   clearError: () => void;
 }
 

@@ -35,29 +35,51 @@ export async function fetchCalendarEvents(
   options: FetchEventsOptions
 ): Promise<CalendarEvent[]> {
   try {
+    // Only fetch from enabled calendars
+    const enabledCalendars = source.calendars.filter(cal => cal.enabled);
+
+    if (enabledCalendars.length === 0) {
+      return [];
+    }
+
+    // Get calendar names for filtering on the backend
+    const selectedCalendarNames = enabledCalendars.map(cal => cal.name);
+
     const response = await proxyRequest<{ events: any[] }>('/api/caldav/fetch-events', {
       url: source.url,
       username: source.username,
       password: source.password,
       timeMin: options.startDate.toISOString(),
       timeMax: options.endDate.toISOString(),
-      selectedCalendars: source.selectedCalendars,
+      selectedCalendars: selectedCalendarNames,
     });
 
+    // Create a lookup map for calendar colors by URL
+    const calendarColorMap = new Map(
+      enabledCalendars.map(cal => [cal.calendarUrl, cal])
+    );
+
     // Transform events from proxy to match CalendarEvent format
-    const events: CalendarEvent[] = response.events.map((event: any) => ({
-      id: event.id,
-      title: event.title,
-      start: new Date(event.start),
-      end: new Date(event.end),
-      allDay: event.allDay || false,
-      description: event.description || undefined,
-      location: event.location || undefined,
-      calendarId: source.id,
-      color: source.color,
-      backgroundColor: source.color,
-      borderColor: source.color,
-    }));
+    const events: CalendarEvent[] = response.events.map((event: any) => {
+      // Find the calendar this event belongs to
+      const calendar = calendarColorMap.get(event.calendarUrl);
+      const color = calendar?.color || source.calendars[0]?.color || '#3788d8';
+      const calendarId = calendar?.id || source.id;
+
+      return {
+        id: event.id,
+        title: event.title,
+        start: new Date(event.start),
+        end: new Date(event.end),
+        allDay: event.allDay || false,
+        description: event.description || undefined,
+        location: event.location || undefined,
+        calendarId: calendarId,
+        color: color,
+        backgroundColor: color,
+        borderColor: color,
+      };
+    });
 
     return events;
   } catch (error) {
@@ -71,7 +93,7 @@ export async function fetchCalendarEvents(
  * Returns the list of available calendars on success, or null on failure
  */
 export async function testConnection(
-  source: Omit<CalendarSource, 'id' | 'enabled' | 'color'>
+  source: Omit<CalendarSource, 'id' | 'enabled' | 'calendars'>
 ): Promise<{ displayName: string; url: string }[] | null> {
   try {
     const response = await proxyRequest<{

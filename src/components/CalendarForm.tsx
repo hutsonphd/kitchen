@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { CalendarSource } from '../types';
+import type { CalendarSource, Calendar } from '../types';
 import { testConnection } from '../services/caldav.service';
 
 interface CalendarFormProps {
@@ -8,21 +8,25 @@ interface CalendarFormProps {
   onCancel: () => void;
 }
 
+// Generate a random color
+const generateRandomColor = () => {
+  const hue = Math.floor(Math.random() * 360);
+  return `hsl(${hue}, 70%, 50%)`;
+};
+
 export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     url: initialData?.url || '',
     username: initialData?.username || '',
     password: initialData?.password || '',
-    color: initialData?.color || '#3788d8',
     enabled: initialData?.enabled ?? true,
-    selectedCalendars: initialData?.selectedCalendars || [],
   });
 
+  const [calendars, setCalendars] = useState<Calendar[]>(initialData?.calendars || []);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [availableCalendars, setAvailableCalendars] = useState<{ displayName: string; url: string }[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -40,15 +44,27 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
     setError(null);
 
     try {
-      const calendars = await testConnection(formData);
-      if (calendars && calendars.length > 0) {
+      const availableCalendars = await testConnection(formData);
+      if (availableCalendars && availableCalendars.length > 0) {
         setTestResult('success');
-        setAvailableCalendars(calendars);
-        // Auto-select all calendars by default
-        setFormData(prev => ({
-          ...prev,
-          selectedCalendars: calendars.map(cal => cal.displayName)
-        }));
+
+        // Create Calendar objects from available calendars
+        // Preserve existing calendars if editing, otherwise create new ones
+        const newCalendars: Calendar[] = availableCalendars.map((cal) => {
+          // Check if we already have this calendar (when editing)
+          const existing = calendars.find(c => c.calendarUrl === cal.url);
+
+          return existing || {
+            id: crypto.randomUUID(),
+            name: cal.displayName,
+            calendarUrl: cal.url,
+            color: generateRandomColor(),
+            enabled: true,
+            sourceId: initialData?.id || '', // Will be set properly when saved
+          };
+        });
+
+        setCalendars(newCalendars);
       } else {
         setTestResult('error');
         setError('Connection test failed. Please check your credentials and URL.');
@@ -61,14 +77,22 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
     }
   };
 
-  const handleCalendarToggle = (calendarName: string) => {
-    setFormData(prev => {
-      const selected = prev.selectedCalendars || [];
-      const newSelected = selected.includes(calendarName)
-        ? selected.filter(name => name !== calendarName)
-        : [...selected, calendarName];
-      return { ...prev, selectedCalendars: newSelected };
-    });
+  const handleCalendarToggle = (calendarId: string) => {
+    setCalendars(prev => prev.map(cal =>
+      cal.id === calendarId ? { ...cal, enabled: !cal.enabled } : cal
+    ));
+  };
+
+  const handleCalendarNameChange = (calendarId: string, newName: string) => {
+    setCalendars(prev => prev.map(cal =>
+      cal.id === calendarId ? { ...cal, name: newName } : cal
+    ));
+  };
+
+  const handleCalendarColorChange = (calendarId: string, newColor: string) => {
+    setCalendars(prev => prev.map(cal =>
+      cal.id === calendarId ? { ...cal, color: newColor } : cal
+    ));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -79,20 +103,30 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
       return;
     }
 
-    onSubmit(formData);
+    if (calendars.length === 0) {
+      setError('Please test the connection and select at least one calendar');
+      return;
+    }
+
+    onSubmit({
+      ...formData,
+      calendars,
+    });
   };
+
+  const enabledCount = calendars.filter(cal => cal.enabled).length;
 
   return (
     <form onSubmit={handleSubmit} className="calendar-form">
       <div className="form-group">
-        <label htmlFor="name">Calendar Name</label>
+        <label htmlFor="name">Source Name</label>
         <input
           type="text"
           id="name"
           name="name"
           value={formData.name}
           onChange={handleChange}
-          placeholder="My Calendar"
+          placeholder="My iCloud Calendar"
           required
         />
       </div>
@@ -136,27 +170,6 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
         />
       </div>
 
-      <div className="form-group">
-        <label htmlFor="color">Color</label>
-        <div className="color-input-wrapper">
-          <input
-            type="color"
-            id="color"
-            name="color"
-            value={formData.color}
-            onChange={handleChange}
-          />
-          <input
-            type="text"
-            value={formData.color}
-            onChange={handleChange}
-            name="color"
-            placeholder="#3788d8"
-            className="color-text"
-          />
-        </div>
-      </div>
-
       <div className="form-group checkbox-group">
         <label>
           <input
@@ -165,30 +178,43 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
             checked={formData.enabled}
             onChange={handleChange}
           />
-          <span>Enable this calendar</span>
+          <span>Enable this source</span>
         </label>
       </div>
 
       {error && <div className="error-message">{error}</div>}
       {testResult === 'success' && <div className="success-message">Connection successful!</div>}
 
-      {availableCalendars.length > 0 && (
+      {calendars.length > 0 && (
         <div className="form-group">
-          <label>Select Calendars to Display</label>
-          <div className="calendar-list">
-            {availableCalendars.map((calendar) => (
-              <label key={calendar.url} className="calendar-checkbox">
-                <input
-                  type="checkbox"
-                  checked={formData.selectedCalendars?.includes(calendar.displayName)}
-                  onChange={() => handleCalendarToggle(calendar.displayName)}
-                />
-                <span>{calendar.displayName}</span>
-              </label>
+          <label>Individual Calendars ({enabledCount} of {calendars.length} enabled)</label>
+          <div className="individual-calendars-list">
+            {calendars.map((calendar) => (
+              <div key={calendar.id} className="individual-calendar-item">
+                <div className="calendar-item-controls">
+                  <input
+                    type="checkbox"
+                    checked={calendar.enabled}
+                    onChange={() => handleCalendarToggle(calendar.id)}
+                    title="Enable/disable this calendar"
+                  />
+                  <input
+                    type="color"
+                    value={calendar.color}
+                    onChange={(e) => handleCalendarColorChange(calendar.id, e.target.value)}
+                    className="calendar-color-picker"
+                    title="Calendar color"
+                  />
+                  <input
+                    type="text"
+                    value={calendar.name}
+                    onChange={(e) => handleCalendarNameChange(calendar.id, e.target.value)}
+                    className="calendar-name-input"
+                    placeholder="Calendar name"
+                  />
+                </div>
+              </div>
             ))}
-          </div>
-          <div className="calendar-count">
-            {formData.selectedCalendars?.length || 0} of {availableCalendars.length} calendars selected
           </div>
         </div>
       )}
@@ -200,14 +226,14 @@ export const CalendarForm: React.FC<CalendarFormProps> = ({ initialData, onSubmi
           disabled={testing || !formData.url || !formData.username || !formData.password}
           className="btn btn-secondary"
         >
-          {testing ? 'Testing...' : 'Test Connection'}
+          {testing ? 'Testing...' : calendars.length > 0 ? 'Refresh Calendars' : 'Test Connection'}
         </button>
         <div className="button-group">
           <button type="button" onClick={onCancel} className="btn btn-secondary">
             Cancel
           </button>
           <button type="submit" className="btn btn-primary">
-            {initialData ? 'Update' : 'Add'} Calendar
+            {initialData ? 'Update' : 'Add'} Source
           </button>
         </div>
       </div>

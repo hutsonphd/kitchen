@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { CalendarSource, CalendarEvent, CalendarContextType } from '../types';
 import { storage } from '../utils/storage';
-import { fetchCalendarEvents } from '../services/caldav.service';
+import * as syncService from '../services/sync.service';
 
 const CalendarContext = createContext<CalendarContextType | undefined>(undefined);
 
@@ -10,6 +10,8 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [isCacheData, setIsCacheData] = useState(false);
 
   // Load calendar sources from localStorage on mount
   useEffect(() => {
@@ -43,19 +45,24 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     setEvents(prev => prev.filter(event => event.calendarId !== id));
   }, []);
 
-  const fetchAllEvents = useCallback(async () => {
-    setLoading(true);
+  const updateCalendar = useCallback((sourceId: string, calendarId: string, updates: Partial<CalendarSource['calendars'][0]>) => {
+    setSources(prev => prev.map(source => {
+      if (source.id === sourceId) {
+        return {
+          ...source,
+          calendars: source.calendars.map(cal =>
+            cal.id === calendarId ? { ...cal, ...updates } : cal
+          )
+        };
+      }
+      return source;
+    }));
+  }, []);
+
+  const fetchAllEvents = useCallback(async (forceRefresh: boolean = false) => {
     setError(null);
 
     try {
-      const enabledSources = sources.filter(s => s.enabled);
-
-      if (enabledSources.length === 0) {
-        setEvents([]);
-        setLoading(false);
-        return;
-      }
-
       // Calculate date range: current week (Sunday - Saturday)
       const now = new Date();
       const currentDay = now.getDay(); // 0 = Sunday
@@ -67,46 +74,79 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
       endOfWeek.setDate(startOfWeek.getDate() + 6);
       endOfWeek.setHours(23, 59, 59, 999);
 
-      // Fetch events from all enabled sources
-      const allEventsPromises = enabledSources.map(async (source) => {
-        try {
-          const sourceEvents = await fetchCalendarEvents(source, {
-            startDate: startOfWeek,
-            endDate: endOfWeek
-          });
+      const dateRange = { startDate: startOfWeek, endDate: endOfWeek };
 
-          // Update last fetched time
-          setSources(prev => prev.map(s =>
-            s.id === source.id
-              ? { ...s, lastFetched: new Date(), fetchError: undefined }
-              : s
-          ));
+      // Check cache status
+      const cacheStatus = await syncService.getCacheInfo();
+      const hasCache = cacheStatus.hasCache;
 
-          return sourceEvents;
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      // STRATEGY 1: No cache exists - Initial sync
+      if (!hasCache) {
+        setLoading(true);
+        setIsCacheData(false);
 
-          // Update source with error
-          setSources(prev => prev.map(s =>
-            s.id === source.id
-              ? { ...s, fetchError: errorMsg }
-              : s
-          ));
+        const { events: freshEvents, errors } = await syncService.syncAllSources(
+          sources,
+          dateRange,
+          true // isInitialSync = true (30 second timeout)
+        );
 
-          console.error(`Failed to fetch events from ${source.name}:`, err);
-          return [];
+        setEvents(freshEvents);
+        setLastSyncTime(new Date());
+        setLoading(false);
+
+        // Update source metadata
+        setSources(prev => prev.map(s => ({
+          ...s,
+          lastFetched: new Date(),
+          fetchError: undefined
+        })));
+
+        if (errors.length > 0) {
+          setError(errors.join(', '));
         }
-      });
 
-      const eventsArrays = await Promise.all(allEventsPromises);
-      const allEvents = eventsArrays.flat();
+        return;
+      }
 
-      setEvents(allEvents);
+      // STRATEGY 2: Has cache - Load immediately, then check if refresh needed
+      const cachedEvents = await syncService.loadFromCache();
+      setEvents(cachedEvents);
+      setIsCacheData(true);
+      setLastSyncTime(cacheStatus.lastSyncTime);
+
+      // Determine if sync is needed
+      const needsSync = await syncService.shouldSync(sources, forceRefresh);
+
+      if (needsSync) {
+        setLoading(true); // Show subtle "updating" indicator
+
+        const { events: freshEvents, errors } = await syncService.syncAllSources(
+          sources,
+          dateRange,
+          false // isInitialSync = false (15 second timeout)
+        );
+
+        setEvents(freshEvents);
+        setLastSyncTime(new Date());
+        setIsCacheData(false);
+        setLoading(false);
+
+        // Update source metadata
+        setSources(prev => prev.map(s => ({
+          ...s,
+          lastFetched: new Date(),
+          fetchError: undefined
+        })));
+
+        if (errors.length > 0) {
+          setError(errors.join(', '));
+        }
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to fetch events';
       setError(errorMsg);
       console.error('Error fetching events:', err);
-    } finally {
       setLoading(false);
     }
   }, [sources]);
@@ -120,9 +160,12 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     events,
     loading,
     error,
+    lastSyncTime,
+    isCacheData,
     addSource,
     updateSource,
     removeSource,
+    updateCalendar,
     fetchAllEvents,
     clearError
   };

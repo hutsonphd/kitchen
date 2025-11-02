@@ -87,14 +87,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 {sources.map(source => (
                   <div key={source.id} className={`calendar-item ${!source.enabled ? 'disabled' : ''}`}>
                     <div className="calendar-info">
-                      <div
-                        className="calendar-color"
-                        style={{ backgroundColor: source.color }}
-                      />
                       <div className="calendar-details">
                         <h3>{source.name}</h3>
                         <p className="calendar-url">{source.url}</p>
                         <p className="calendar-username">Username: {source.username}</p>
+                        {source.calendars.length > 0 && (
+                          <div className="source-calendars-preview">
+                            <p className="calendar-meta">
+                              {source.calendars.filter(c => c.enabled).length} of {source.calendars.length} calendars enabled:
+                            </p>
+                            <div className="calendar-colors-preview">
+                              {source.calendars.filter(c => c.enabled).slice(0, 5).map(cal => (
+                                <span
+                                  key={cal.id}
+                                  className="color-dot"
+                                  style={{ backgroundColor: cal.color }}
+                                  title={cal.name}
+                                />
+                              ))}
+                              {source.calendars.filter(c => c.enabled).length > 5 && (
+                                <span className="more-calendars">+{source.calendars.filter(c => c.enabled).length - 5}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         {source.lastFetched && (
                           <p className="calendar-meta">
                             Last updated: {new Date(source.lastFetched).toLocaleString()}
