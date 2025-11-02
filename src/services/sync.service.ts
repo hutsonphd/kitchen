@@ -5,8 +5,8 @@ import * as indexedDB from './indexeddb.service';
 
 // Sync timing constants
 export const CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
-export const INITIAL_SYNC_TIMEOUT = 30 * 1000; // 30 seconds for first load
-export const BACKGROUND_SYNC_TIMEOUT = 15 * 1000; // 15 seconds for background updates
+export const INITIAL_SYNC_TIMEOUT = 60 * 1000; // 60 seconds for first load (increased to handle recurring events)
+export const BACKGROUND_SYNC_TIMEOUT = 45 * 1000; // 45 seconds for background updates (increased to handle recurring events)
 
 /**
  * Check if a sync is needed for the given sources

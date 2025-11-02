@@ -134,17 +134,56 @@ app.post('/api/caldav/fetch-events', async (req, res) => {
             for (const vevent of vevents) {
               const event = new ICAL.Event(vevent);
 
-              events.push({
-                id: event.uid,
-                title: event.summary || 'Untitled Event',
-                start: event.startDate?.toJSDate(),
-                end: event.endDate?.toJSDate(),
-                allDay: event.startDate?.isDate || false,
-                description: event.description || '',
-                location: event.location || '',
-                calendarUrl: calendar.url,
-                calendarName: calendar.displayName || 'Unnamed Calendar',
-              });
+              // Check if this is a recurring event
+              if (event.isRecurring()) {
+                // Expand recurring events within the time range
+                const startDate = timeMin ? ICAL.Time.fromJSDate(new Date(timeMin), true) : null;
+                const endDate = timeMax ? ICAL.Time.fromJSDate(new Date(timeMax), true) : null;
+
+                // Create an iterator to expand occurrences
+                const expand = event.iterator(startDate);
+                let next;
+                let occurrenceCount = 0;
+                const maxOccurrences = 1000; // Safety limit to prevent infinite loops
+
+                while ((next = expand.next()) && occurrenceCount < maxOccurrences) {
+                  // Stop if we've exceeded the end date
+                  if (endDate && next.compare(endDate) > 0) {
+                    break;
+                  }
+
+                  const occurrence = event.getOccurrenceDetails(next);
+
+                  events.push({
+                    id: `${event.uid}_${next.toUnixTime()}`,
+                    title: event.summary || 'Untitled Event',
+                    start: occurrence.startDate?.toJSDate(),
+                    end: occurrence.endDate?.toJSDate(),
+                    allDay: occurrence.startDate?.isDate || false,
+                    description: event.description || '',
+                    location: event.location || '',
+                    calendarUrl: calendar.url,
+                    calendarName: calendar.displayName || 'Unnamed Calendar',
+                    isRecurring: true,
+                  });
+
+                  occurrenceCount++;
+                }
+              } else {
+                // Non-recurring event - add as before
+                events.push({
+                  id: event.uid,
+                  title: event.summary || 'Untitled Event',
+                  start: event.startDate?.toJSDate(),
+                  end: event.endDate?.toJSDate(),
+                  allDay: event.startDate?.isDate || false,
+                  description: event.description || '',
+                  location: event.location || '',
+                  calendarUrl: calendar.url,
+                  calendarName: calendar.displayName || 'Unnamed Calendar',
+                  isRecurring: false,
+                });
+              }
             }
           } catch (parseError) {
             console.error('Error parsing calendar object:', parseError.message);

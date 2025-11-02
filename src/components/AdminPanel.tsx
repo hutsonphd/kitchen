@@ -8,9 +8,10 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
-  const { sources, addSource, updateSource, removeSource, uiSettings, updateUISettings } = useCalendar();
+  const { sources, addSource, updateSource, removeSource, uiSettings, updateUISettings, fetchAllEvents, lastSyncTime, loading } = useCalendar();
   const [showForm, setShowForm] = useState(false);
   const [editingSource, setEditingSource] = useState<CalendarSource | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const handleAddNew = () => {
     setEditingSource(null);
@@ -47,13 +48,53 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     updateSource(source.id, { enabled: !source.enabled });
   };
 
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await fetchAllEvents(true);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const formatLastSyncTime = () => {
+    if (!lastSyncTime) return 'Never';
+    const now = new Date();
+    const diff = now.getTime() - new Date(lastSyncTime).getTime();
+    const minutes = Math.floor(diff / 60000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes === 1) return '1 minute ago';
+    if (minutes < 60) return `${minutes} minutes ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours === 1) return '1 hour ago';
+    if (hours < 24) return `${hours} hours ago`;
+
+    return new Date(lastSyncTime).toLocaleString();
+  };
+
   return (
     <div className="admin-panel">
       <div className="admin-header">
         <h1>Calendar Management</h1>
-        <button onClick={onClose} className="btn btn-secondary">
-          Back to Kiosk View
-        </button>
+        <div className="header-controls">
+          <div className="sync-status">
+            <span className="sync-label">Last sync:</span>
+            <span className="sync-time">{formatLastSyncTime()}</span>
+            {(loading || isSyncing) && <span className="sync-indicator">Syncing...</span>}
+          </div>
+          <button
+            onClick={handleManualSync}
+            className="btn btn-primary"
+            disabled={isSyncing || loading}
+          >
+            {isSyncing || loading ? 'Syncing...' : 'Sync Now'}
+          </button>
+          <button onClick={onClose} className="btn btn-secondary">
+            Back to Kiosk View
+          </button>
+        </div>
       </div>
 
       <div className="admin-content">
