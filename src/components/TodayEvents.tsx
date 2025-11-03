@@ -7,26 +7,68 @@ interface TodayEventsProps {
 
 export const TodayEvents: React.FC<TodayEventsProps> = ({ events }) => {
   const todayEvents = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const now = new Date();
+    const todayYear = now.getFullYear();
+    const todayMonth = now.getMonth();
+    const todayDay = now.getDate();
 
     return events
       .filter(event => {
         const eventStart = new Date(event.start);
-        eventStart.setHours(0, 0, 0, 0);
-        return eventStart.getTime() === today.getTime();
+
+        // For all-day events, use date-only comparison to avoid timezone issues
+        if (event.allDay) {
+          const eventYear = eventStart.getFullYear();
+          const eventMonth = eventStart.getMonth();
+          const eventDay = eventStart.getDate();
+
+          return eventYear === todayYear && eventMonth === todayMonth && eventDay === todayDay;
+        }
+
+        // For timed events, use standard midnight comparison
+        const eventStartMidnight = new Date(eventStart);
+        eventStartMidnight.setHours(0, 0, 0, 0);
+        const todayMidnight = new Date(now);
+        todayMidnight.setHours(0, 0, 0, 0);
+
+        return eventStartMidnight.getTime() === todayMidnight.getTime();
       })
       .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   }, [events]);
 
-  const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }).format(new Date(date));
+  const formatTime = (date: Date, timezone?: string) => {
+    if (!timezone) {
+      return new Intl.DateTimeFormat('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }).format(new Date(date));
+    }
+
+    try {
+      // Format time in the original timezone
+      const timeStr = new Intl.DateTimeFormat('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: timezone
+      }).format(new Date(date));
+
+      // Get timezone abbreviation
+      const tzAbbr = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        timeZoneName: 'short'
+      }).formatToParts(new Date(date)).find(part => part.type === 'timeZoneName')?.value || '';
+
+      return `${timeStr} ${tzAbbr}`;
+    } catch (error) {
+      // If timezone is invalid, fall back to local time
+      return new Intl.DateTimeFormat('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }).format(new Date(date));
+    }
   };
 
   const isElapsed = (event: CalendarEvent) => {
@@ -53,7 +95,7 @@ export const TodayEvents: React.FC<TodayEventsProps> = ({ events }) => {
                   <span className="all-day-badge">All Day</span>
                 ) : (
                   <>
-                    {formatTime(event.start)} - {formatTime(event.end)}
+                    {formatTime(event.start, event.originalTimezone || event.timezone)} - {formatTime(event.end, event.originalTimezone || event.timezone)}
                   </>
                 )}
               </div>

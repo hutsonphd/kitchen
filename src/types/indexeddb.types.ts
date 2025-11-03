@@ -15,8 +15,8 @@ export interface SyncMetadata {
   sourceId: string;
   lastSyncTime: Date;
   lastSyncSuccess: boolean;
-  dateRangeStart: Date;
-  dateRangeEnd: Date;
+  syncToken?: string; // CalDAV sync-token for incremental sync
+  isFullSyncCompleted: boolean; // Whether initial full sync has completed
   eventCount: number;
   errorMessage?: string;
 }

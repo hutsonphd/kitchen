@@ -26,6 +26,22 @@ function extractTimezone(icalTime) {
   return zone.tzid || null;
 }
 
+// Helper function to convert ICAL.Time to proper Date object
+// For all-day events, preserve date-only semantics without timezone conversion
+function icalTimeToDate(icalTime) {
+  if (!icalTime) return null;
+
+  if (icalTime.isDate) {
+    // For all-day events (date-only), create a date at noon UTC
+    // Using noon prevents timezone shifting from changing the date when converted to local time
+    // (e.g., midnight UTC on Nov 4 becomes Nov 3 evening in PST, but noon UTC stays Nov 4)
+    return new Date(Date.UTC(icalTime.year, icalTime.month - 1, icalTime.day, 12, 0, 0));
+  }
+
+  // For timed events, use toJSDate() which respects the timezone
+  return icalTime.toJSDate();
+}
+
 // Helper function to parse ICS data and return events
 async function parseICSData(icsData, calendarName, calendarUrl, timeMin, timeMax) {
   const events = [];
@@ -40,9 +56,10 @@ async function parseICSData(icsData, calendarName, calendarUrl, timeMin, timeMax
 
       // Check if this is a recurring event
       if (event.isRecurring()) {
-        // Expand recurring events within the time range
-        const startDate = timeMin ? ICAL.Time.fromJSDate(new Date(timeMin), true) : null;
-        const endDate = timeMax ? ICAL.Time.fromJSDate(new Date(timeMax), true) : null;
+        // Expand recurring events within the time range (if provided)
+        // Don't force UTC - use the event's own timezone for iteration
+        const startDate = timeMin ? ICAL.Time.fromJSDate(new Date(timeMin)) : null;
+        const endDate = timeMax ? ICAL.Time.fromJSDate(new Date(timeMax)) : null;
 
         // Create an iterator to expand occurrences
         const expand = event.iterator(startDate);
@@ -51,9 +68,15 @@ async function parseICSData(icsData, calendarName, calendarUrl, timeMin, timeMax
         const maxOccurrences = 1000; // Safety limit to prevent infinite loops
 
         while ((next = expand.next()) && occurrenceCount < maxOccurrences) {
-          // Stop if we've exceeded the end date
+          // If we have a time range, filter occurrences
           if (endDate && next.compare(endDate) > 0) {
             break;
+          }
+
+          // Skip occurrences before startDate
+          if (startDate && next.compare(startDate) < 0) {
+            occurrenceCount++;
+            continue;
           }
 
           const occurrence = event.getOccurrenceDetails(next);
@@ -63,8 +86,8 @@ async function parseICSData(icsData, calendarName, calendarUrl, timeMin, timeMax
           events.push({
             id: `${event.uid}_${next.toUnixTime()}`,
             title: event.summary || 'Untitled Event',
-            start: occurrence.startDate?.toJSDate(),
-            end: occurrence.endDate?.toJSDate(),
+            start: icalTimeToDate(occurrence.startDate),
+            end: icalTimeToDate(occurrence.endDate),
             allDay: occurrence.startDate?.isDate || false,
             description: event.description || '',
             location: event.location || '',
@@ -82,11 +105,31 @@ async function parseICSData(icsData, calendarName, calendarUrl, timeMin, timeMax
         const startTz = extractTimezone(event.startDate);
         const endTz = extractTimezone(event.endDate);
 
+        // Filter by time range if provided
+        if (timeMin || timeMax) {
+          const eventStart = event.startDate;
+          const eventEnd = event.endDate;
+
+          if (timeMin && eventEnd) {
+            const minDate = ICAL.Time.fromJSDate(new Date(timeMin));
+            if (eventEnd.compare(minDate) < 0) {
+              continue; // Event ends before range starts
+            }
+          }
+
+          if (timeMax && eventStart) {
+            const maxDate = ICAL.Time.fromJSDate(new Date(timeMax));
+            if (eventStart.compare(maxDate) > 0) {
+              continue; // Event starts after range ends
+            }
+          }
+        }
+
         events.push({
           id: event.uid,
           title: event.summary || 'Untitled Event',
-          start: event.startDate?.toJSDate(),
-          end: event.endDate?.toJSDate(),
+          start: icalTimeToDate(event.startDate),
+          end: icalTimeToDate(event.endDate),
           allDay: event.startDate?.isDate || false,
           description: event.description || '',
           location: event.location || '',
@@ -208,7 +251,17 @@ app.post('/api/caldav/test-connection', async (req, res) => {
 
 // Fetch calendar events
 app.post('/api/caldav/fetch-events', async (req, res) => {
-  const { url, username, password, timeMin, timeMax, selectedCalendars, sourceType, requiresAuth } = req.body;
+  const {
+    url,
+    username,
+    password,
+    timeMin,
+    timeMax,
+    selectedCalendars,
+    sourceType,
+    requiresAuth,
+    fullSync = false // New parameter for full sync mode
+  } = req.body;
 
   if (!url) {
     return res.status(400).json({
@@ -229,7 +282,11 @@ app.post('/api/caldav/fetch-events', async (req, res) => {
     // Handle .ics URL type
     if (sourceType === 'ics') {
       console.log(`Fetching events from .ics URL: ${url}`);
-      console.log(`Date range: ${timeMin} to ${timeMax}`);
+      if (fullSync) {
+        console.log('Full sync mode: fetching all events');
+      } else {
+        console.log(`Date range: ${timeMin} to ${timeMax}`);
+      }
 
       const response = await fetch(url, {
         headers: requiresAuth ? {
@@ -242,7 +299,14 @@ app.post('/api/caldav/fetch-events', async (req, res) => {
       }
 
       const icsData = await response.text();
-      const parsedEvents = await parseICSData(icsData, 'Calendar', url, timeMin, timeMax);
+      // In full sync mode, don't pass time restrictions
+      const parsedEvents = await parseICSData(
+        icsData,
+        'Calendar',
+        url,
+        fullSync ? null : timeMin,
+        fullSync ? null : timeMax
+      );
       events.push(...parsedEvents);
 
       console.log(`Successfully parsed ${events.length} events from .ics URL`);
@@ -252,7 +316,11 @@ app.post('/api/caldav/fetch-events', async (req, res) => {
 
     // Handle CalDAV type
     console.log(`Fetching events from CalDAV: ${url}${requiresAuth ? ` for user ${username}` : ' (public)'}`);
-    console.log(`Date range: ${timeMin} to ${timeMax}`);
+    if (fullSync) {
+      console.log('Full sync mode: fetching all events');
+    } else {
+      console.log(`Date range: ${timeMin} to ${timeMax}`);
+    }
     if (selectedCalendars && selectedCalendars.length > 0) {
       console.log(`Filtering to calendars: ${selectedCalendars.join(', ')}`);
     }
@@ -294,7 +362,8 @@ app.post('/api/caldav/fetch-events', async (req, res) => {
 
         const calendarObjects = await client.fetchCalendarObjects({
           calendar,
-          timeRange: timeMin && timeMax ? {
+          // Only apply time range filter in incremental sync mode (not full sync)
+          timeRange: !fullSync && timeMin && timeMax ? {
             start: timeMin,
             end: timeMax,
           } : undefined,
@@ -311,8 +380,8 @@ app.post('/api/caldav/fetch-events', async (req, res) => {
               obj.data,
               calendar.displayName || 'Unnamed Calendar',
               calendar.url,
-              timeMin,
-              timeMax
+              fullSync ? null : timeMin,
+              fullSync ? null : timeMax
             );
             events.push(...parsedEvents);
           } catch (parseError) {

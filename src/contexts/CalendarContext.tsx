@@ -71,32 +71,36 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     setError(null);
 
     try {
-      // Calculate date range: current week (Sunday - Saturday)
+      // Dummy date range for API compatibility (not used in fullSync mode)
+      // For incremental sync, we'll use a wide range (1 year back, 1 year forward)
       const now = new Date();
-      const currentDay = now.getDay(); // 0 = Sunday
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - currentDay);
-      startOfWeek.setHours(0, 0, 0, 0);
-
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
-      endOfWeek.setHours(23, 59, 59, 999);
-
-      const dateRange = { startDate: startOfWeek, endDate: endOfWeek };
+      const startDate = new Date(now);
+      startDate.setFullYear(now.getFullYear() - 1);
+      const endDate = new Date(now);
+      endDate.setFullYear(now.getFullYear() + 1);
+      const dateRange = { startDate, endDate };
 
       // Check cache status
       const cacheStatus = await syncService.getCacheInfo();
       const hasCache = cacheStatus.hasCache;
 
-      // STRATEGY 1: No cache exists - Initial sync
-      if (!hasCache) {
+      // Check if full sync has been completed for all sources
+      const allMetadata = await syncService.getAllSyncMetadata();
+      const needsFullSync = !hasCache || sources.some(source => {
+        const meta = allMetadata.find(m => m.sourceId === source.id);
+        return !meta || !meta.isFullSyncCompleted;
+      });
+
+      // STRATEGY 1: No cache OR full sync not completed - Initial full sync
+      if (!hasCache || needsFullSync) {
         setLoading(true);
         setIsCacheData(false);
 
         const { events: freshEvents, errors } = await syncService.syncAllSources(
           sources,
           dateRange,
-          true // isInitialSync = true (30 second timeout)
+          true, // isInitialSync = true (60 second timeout)
+          true  // fullSync = true (fetch all events)
         );
 
         setEvents(freshEvents);
@@ -117,7 +121,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
         return;
       }
 
-      // STRATEGY 2: Has cache - Load immediately, then check if refresh needed
+      // STRATEGY 2: Has cache and full sync completed - Load immediately, then check if refresh needed
       const cachedEvents = await syncService.loadFromCache();
       setEvents(cachedEvents);
       setIsCacheData(true);
@@ -129,10 +133,13 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (needsSync) {
         setLoading(true); // Show subtle "updating" indicator
 
+        // For incremental sync, use fullSync to get any new events
+        // In the future, this could use CalDAV sync-token for true incremental sync
         const { events: freshEvents, errors } = await syncService.syncAllSources(
           sources,
           dateRange,
-          false // isInitialSync = false (15 second timeout)
+          false, // isInitialSync = false (45 second timeout)
+          true   // fullSync = true (for now, always fetch all events)
         );
 
         setEvents(freshEvents);

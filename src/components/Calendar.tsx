@@ -25,6 +25,48 @@ function formatTimeAgo(date: Date): string {
   return `${days} day${days > 1 ? 's' : ''} ago`;
 }
 
+// Helper function to format time with timezone
+function formatTimeWithTimezone(date: Date, timezone?: string, allDay?: boolean): string {
+  if (allDay) {
+    // For all-day events, don't show time
+    return '';
+  }
+
+  if (!timezone) {
+    // No timezone info, use local time
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+
+  try {
+    // Format time in the original timezone
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: timezone
+    });
+
+    // Get timezone abbreviation (EST, PST, etc.)
+    const tzAbbr = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'short'
+    }).formatToParts(date).find(part => part.type === 'timeZoneName')?.value || '';
+
+    return `${timeStr} ${tzAbbr}`;
+  } catch (error) {
+    // If timezone is invalid, fall back to local time
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+}
+
 export const Calendar: React.FC<CalendarProps> = ({ onAdminClick }) => {
   const { sources, events, loading, error, lastSyncTime, isCacheData, fetchAllEvents, uiSettings } = useCalendar();
   const calendarRef = useRef<FullCalendar>(null);
@@ -103,6 +145,8 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
       description: event.description,
       location: event.location,
       calendarId: event.calendarId,
+      timezone: event.originalTimezone || event.timezone, // Store timezone for display
+      originalStart: event.start, // Keep original dates for timezone conversion
     },
   }));
 
@@ -207,6 +251,32 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
               if (info.event.end && new Date(info.event.end) < now) {
                 info.el.classList.add('elapsed-calendar-event');
               }
+            }}
+            eventContent={(eventInfo) => {
+              const { event } = eventInfo;
+              const timezone = event.extendedProps.timezone;
+              const originalStart = event.extendedProps.originalStart;
+
+              // For all-day events, just show the title
+              if (event.allDay) {
+                return {
+                  html: `<div class="fc-event-title">${event.title}</div>`
+                };
+              }
+
+              // For timed events, show time in original timezone
+              if (timezone && originalStart) {
+                const timeStr = formatTimeWithTimezone(new Date(originalStart), timezone, false);
+                return {
+                  html: `
+                    <div class="fc-event-time">${timeStr}</div>
+                    <div class="fc-event-title">${event.title}</div>
+                  `
+                };
+              }
+
+              // Fallback to default rendering
+              return null;
             }}
           />
         </div>
