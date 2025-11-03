@@ -68,7 +68,7 @@ function formatTimeWithTimezone(date: Date, timezone?: string, allDay?: boolean)
 }
 
 export const Calendar: React.FC<CalendarProps> = ({ onAdminClick }) => {
-  const { sources, events, loading, error, lastSyncTime, isCacheData, fetchAllEvents, uiSettings } = useCalendar();
+  const { sources, events, loading, lastSyncTime, isCacheData, fetchAllEvents, uiSettings, syncMetadata } = useCalendar();
   const calendarRef = useRef<FullCalendar>(null);
   const { calendarHeight, slotDuration, slotHeight } = useCalendarHeight();
   const [monthYear, setMonthYear] = useState('');
@@ -139,7 +139,7 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
     end: event.end,
     allDay: event.allDay,
     backgroundColor: event.backgroundColor || uiSettings.defaultEventBgColor,
-    borderColor: event.borderColor || uiSettings.defaultEventBgColor,
+    borderColor: event.color, // Use calendar color for border
     textColor: uiSettings.defaultEventTextColor,
     extendedProps: {
       description: event.description,
@@ -161,17 +161,53 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
         </h1>
         <div className="header-controls">
           {/* Sync status and loading indicator */}
-          {loading && (
-            <div className="header-status">
-              <div className="loading-spinner-small"></div>
-              <span>{isCacheData ? 'Updating...' : 'Loading...'}</span>
-            </div>
-          )}
-          {!loading && isCacheData && lastSyncTime && (
-            <div className="header-status">
-              Last synced: {formatTimeAgo(lastSyncTime)}
-            </div>
-          )}
+          {loading && (() => {
+            // Check if any source is retrying
+            const retryingSource = syncMetadata.find(m =>
+              !m.lastSyncSuccess && m.retryCount > 0 && m.retryCount < m.maxRetries
+            );
+
+            if (retryingSource) {
+              return (
+                <div className="header-status">
+                  <div className="loading-spinner-small"></div>
+                  <span>Syncing... (Attempt {retryingSource.retryCount}/{retryingSource.maxRetries})</span>
+                </div>
+              );
+            }
+
+            return (
+              <div className="header-status">
+                <div className="loading-spinner-small"></div>
+                <span>{isCacheData ? 'Updating...' : 'Loading...'}</span>
+              </div>
+            );
+          })()}
+          {!loading && (() => {
+            // Check for failed syncs that have exceeded retry limit
+            const failedSource = syncMetadata.find(m =>
+              !m.lastSyncSuccess && m.retryCount >= m.maxRetries
+            );
+
+            if (failedSource) {
+              return (
+                <div className="header-status error">
+                  Sync failed after {failedSource.maxRetries} attempts
+                </div>
+              );
+            }
+
+            // Show normal sync time
+            if (isCacheData && lastSyncTime) {
+              return (
+                <div className="header-status">
+                  Last synced: {formatTimeAgo(lastSyncTime)}
+                </div>
+              );
+            }
+
+            return null;
+          })()}
 
           <button
             onClick={handlePrevWeek}
@@ -200,13 +236,9 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
         </div>
       </div>
 
-      {error && (
-        <div className="error-banner">
-          Error: {error}
-        </div>
-      )}
-
       <div className="calendar-main-content">
+        <TodayEvents events={events} />
+
         <div className="calendar-container">
           <style>
             {`.fc .fc-timegrid-slot { height: ${slotHeight}px !important; }`}
@@ -224,6 +256,7 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
             allDaySlot={true}
             expandRows={false}
             height={calendarHeight}
+            eventMinHeight={slotHeight} // Minimum event height = 60 minutes
             events={fullCalendarEvents}
             eventClick={handleEventClick}
             nowIndicator={true}
@@ -280,8 +313,6 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
             }}
           />
         </div>
-
-        <TodayEvents events={events} />
       </div>
     </div>
   );

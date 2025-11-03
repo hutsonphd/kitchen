@@ -744,6 +744,22 @@ h1.month-year-title {
   pointer-events: none;
 }
 
+/* FullCalendar Event Text Overflow */
+.fc-event-title,
+.fc-event-time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fc-event-title-container {
+  overflow: hidden;
+}
+
+.fc-timegrid-event {
+  box-shadow: none !important;
+}
+
 /* Today Events Panel */
 .today-events-panel {
   width: 20rem;
@@ -751,7 +767,8 @@ h1.month-year-title {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-left: 1px solid var(--color-border-light);
+  border-right: 1px solid var(--color-border-light);
+  border-top-right-radius: 1.5rem;
 }
 
 .today-events-title {
@@ -784,7 +801,7 @@ h1.month-year-title {
 }
 
 .today-event-card {
-  background: var(--color-bg-white);
+  background: var(--color-primary-transparent);
   border-left: 0.25rem solid;
   padding: 1rem;
   border-radius: 0.25rem;
@@ -795,7 +812,6 @@ h1.month-year-title {
 }
 
 .today-event-card.elapsed {
-  opacity: 0.5;
   position: relative;
 }
 
@@ -813,7 +829,7 @@ h1.month-year-title {
 
 .event-time {
   font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  color: white;
   font-weight: 500;
 }
 
@@ -831,14 +847,18 @@ h1.month-year-title {
 .event-title {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .event-location,
 .event-description {
   font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  color: white;
   line-height: 1.4;
+  overflow: hidden;
 }
 
 .event-label {

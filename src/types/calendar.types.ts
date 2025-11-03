@@ -1,4 +1,5 @@
 import type { UISettings } from './settings.types';
+import type { SyncMetadata } from './indexeddb.types';
 
 export interface Calendar {
   id: string;
@@ -47,6 +48,7 @@ export interface CalendarContextType {
   lastSyncTime: Date | null;
   isCacheData: boolean;
   uiSettings: UISettings;
+  syncMetadata: SyncMetadata[];
   addSource: (source: Omit<CalendarSource, 'id'>) => void;
   updateSource: (id: string, source: Partial<CalendarSource>) => void;
   removeSource: (id: string) => void;
@@ -56,6 +58,7 @@ export interface CalendarContextType {
   clearError: () => void;
   clearAllEvents: () => Promise<void>;
   resetEverything: () => Promise<void>;
+  resetRetry: (sourceId: string) => Promise<void>;
 }
 
 export interface CalDAVCredentials {

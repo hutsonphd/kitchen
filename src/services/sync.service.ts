@@ -8,6 +8,44 @@ export const CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 export const INITIAL_SYNC_TIMEOUT = 60 * 1000; // 60 seconds for first load (increased to handle recurring events)
 export const BACKGROUND_SYNC_TIMEOUT = 45 * 1000; // 45 seconds for background updates (increased to handle recurring events)
 
+// Retry configuration
+export const MAX_RETRIES = 3; // Maximum number of retry attempts before stopping
+export const RETRY_DELAYS = [1 * 60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000]; // 1min, 5min, 15min exponential backoff
+
+/**
+ * Check if a source should be retried based on retry metadata
+ */
+export function shouldRetry(metadata: SyncMetadata | null): boolean {
+  if (!metadata) {
+    return true; // No metadata means we should try
+  }
+
+  // If last sync was successful, no need to retry
+  if (metadata.lastSyncSuccess) {
+    return false;
+  }
+
+  // If we've exceeded max retries, don't retry
+  if (metadata.retryCount >= metadata.maxRetries) {
+    return false;
+  }
+
+  // Check if enough time has passed for next retry
+  if (metadata.nextRetryTime) {
+    return Date.now() >= metadata.nextRetryTime.getTime();
+  }
+
+  return true; // Should retry if no nextRetryTime set
+}
+
+/**
+ * Calculate the next retry time using exponential backoff
+ */
+export function calculateNextRetryTime(retryCount: number): Date {
+  const delay = RETRY_DELAYS[Math.min(retryCount, RETRY_DELAYS.length - 1)];
+  return new Date(Date.now() + delay);
+}
+
 /**
  * Check if a sync is needed for the given sources
  */
@@ -61,23 +99,36 @@ export async function syncSource(
   timeout: number,
   fullSync: boolean = false
 ): Promise<{ events: CalendarEvent[]; error?: string }> {
+  // Get existing metadata to check retry status
+  const existingMetadata = await indexedDB.getSyncMetadata(source.id);
+
+  // Check if we should skip this sync due to retry limits
+  if (existingMetadata && !shouldRetry(existingMetadata)) {
+    // Return cached events if available, or empty array
+    const cachedEvents = await indexedDB.loadEventsBySource(source.id);
+    return {
+      events: cachedEvents,
+      error: existingMetadata.errorMessage || 'Sync failed - retry limit exceeded'
+    };
+  }
+
   try {
     const events = await fetchWithTimeout(source, dateRange, timeout, fullSync);
 
     // Save to cache
     await indexedDB.saveEvents(events, source.id);
 
-    // Get existing metadata to preserve sync token
-    const existingMetadata = await indexedDB.getSyncMetadata(source.id);
-
-    // Save sync metadata
+    // Save sync metadata - success, reset retry count
     const metadata: SyncMetadata = {
       sourceId: source.id,
       lastSyncTime: new Date(),
       lastSyncSuccess: true,
       isFullSyncCompleted: fullSync || existingMetadata?.isFullSyncCompleted || false,
       eventCount: events.length,
-      syncToken: existingMetadata?.syncToken, // Preserve existing sync token for now
+      syncToken: existingMetadata?.syncToken,
+      retryCount: 0, // Reset retry count on success
+      maxRetries: MAX_RETRIES,
+      nextRetryTime: undefined, // Clear next retry time
     };
     await indexedDB.saveSyncMetadata(metadata);
 
@@ -85,22 +136,33 @@ export async function syncSource(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-    // Get existing metadata to preserve fields
-    const existingMetadata = await indexedDB.getSyncMetadata(source.id);
+    // Increment retry count
+    const currentRetryCount = existingMetadata?.retryCount || 0;
+    const newRetryCount = currentRetryCount + 1;
 
-    // Save error to metadata
+    // Calculate next retry time using exponential backoff
+    const nextRetryTime = newRetryCount < MAX_RETRIES
+      ? calculateNextRetryTime(newRetryCount)
+      : undefined;
+
+    // Save error to metadata with retry info
     const metadata: SyncMetadata = {
       sourceId: source.id,
       lastSyncTime: new Date(),
       lastSyncSuccess: false,
       isFullSyncCompleted: existingMetadata?.isFullSyncCompleted || false,
-      eventCount: 0,
+      eventCount: existingMetadata?.eventCount || 0,
       errorMessage,
       syncToken: existingMetadata?.syncToken,
+      retryCount: newRetryCount,
+      maxRetries: MAX_RETRIES,
+      nextRetryTime,
     };
     await indexedDB.saveSyncMetadata(metadata);
 
-    return { events: [], error: errorMessage };
+    // Return cached events if available
+    const cachedEvents = await indexedDB.loadEventsBySource(source.id);
+    return { events: cachedEvents, error: errorMessage };
   }
 }
 
@@ -176,4 +238,16 @@ export async function clearSourceCache(sourceId: string): Promise<void> {
  */
 export async function clearAllCache(): Promise<void> {
   await indexedDB.clearAllEvents();
+}
+
+/**
+ * Reset retry counter for a source (allows manual retry after max retries exceeded)
+ */
+export async function resetRetryCounter(sourceId: string): Promise<void> {
+  const metadata = await indexedDB.getSyncMetadata(sourceId);
+  if (metadata) {
+    metadata.retryCount = 0;
+    metadata.nextRetryTime = undefined;
+    await indexedDB.saveSyncMetadata(metadata);
+  }
 }

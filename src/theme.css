@@ -8,6 +8,7 @@
   --color-primary: #3788d8;
   --color-primary-hover: #2a6fb5;
   --color-primary-light: #3788d8;
+  --color-primary-transparent: color-mix(in srgb, var(--color-primary) 20%, transparent);
 
   /* ===== Text Colors ===== */
   --color-text-primary: #bebebe;

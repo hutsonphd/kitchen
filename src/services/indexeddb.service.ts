@@ -255,6 +255,22 @@ export async function getAllSyncMetadata(): Promise<SyncMetadata[]> {
 }
 
 /**
+ * Delete sync metadata for a source
+ */
+export async function deleteSyncMetadata(sourceId: string): Promise<void> {
+  if (!isIndexedDBAvailable()) {
+    return;
+  }
+
+  try {
+    const db = await getDB();
+    await db.delete('syncMetadata', sourceId);
+  } catch (error) {
+    console.error('Failed to delete sync metadata:', error);
+  }
+}
+
+/**
  * Get cache status
  */
 export async function getCacheStatus(): Promise<CacheStatus> {

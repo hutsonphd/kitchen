@@ -19,6 +19,9 @@ export interface SyncMetadata {
   isFullSyncCompleted: boolean; // Whether initial full sync has completed
   eventCount: number;
   errorMessage?: string;
+  retryCount: number; // Number of consecutive failed sync attempts
+  maxRetries: number; // Maximum retry attempts before stopping (default: 3)
+  nextRetryTime?: Date; // When the next retry should occur (exponential backoff)
 }
 
 /**

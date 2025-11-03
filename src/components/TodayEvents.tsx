@@ -88,7 +88,10 @@ export const TodayEvents: React.FC<TodayEventsProps> = ({ events }) => {
             <div
               key={event.id}
               className={`today-event-card ${isElapsed(event) ? 'elapsed' : ''}`}
-              style={{ borderLeftColor: event.color }}
+              style={{
+                borderLeftColor: event.color,
+                background: `color-mix(in srgb, ${event.color} 20%, transparent)`
+              }}
             >
               <div className="event-time">
                 {event.allDay ? (
