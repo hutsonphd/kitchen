@@ -1,13 +1,27 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import type { CalendarEvent } from '../types';
+import { useCalendar } from '../contexts/CalendarContext';
+import { formatEventTime } from '../utils/timezone';
 
 interface TodayEventsProps {
   events: CalendarEvent[];
 }
 
 export const TodayEvents: React.FC<TodayEventsProps> = React.memo(({ events }) => {
+  const { uiSettings } = useCalendar();
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every minute to refresh the list
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   const todayEvents = useMemo(() => {
-    const now = new Date();
+    const now = currentTime;
     const todayYear = now.getFullYear();
     const todayMonth = now.getMonth();
     const todayDay = now.getDate();
@@ -15,6 +29,12 @@ export const TodayEvents: React.FC<TodayEventsProps> = React.memo(({ events }) =
     return events
       .filter(event => {
         const eventStart = new Date(event.start);
+        const eventEnd = new Date(event.end);
+
+        // Filter out events that have already ended
+        if (eventEnd < now) {
+          return false;
+        }
 
         // For all-day events, use date-only comparison to avoid timezone issues
         if (event.allDay) {
@@ -34,42 +54,8 @@ export const TodayEvents: React.FC<TodayEventsProps> = React.memo(({ events }) =
         return eventStartMidnight.getTime() === todayMidnight.getTime();
       })
       .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-  }, [events]);
+  }, [events, currentTime]);
 
-  const formatTime = (date: Date, timezone?: string) => {
-    if (!timezone) {
-      return new Intl.DateTimeFormat('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      }).format(new Date(date));
-    }
-
-    try {
-      // Format time in the original timezone
-      const timeStr = new Intl.DateTimeFormat('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: timezone
-      }).format(new Date(date));
-
-      // Get timezone abbreviation
-      const tzAbbr = new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone,
-        timeZoneName: 'short'
-      }).formatToParts(new Date(date)).find(part => part.type === 'timeZoneName')?.value || '';
-
-      return `${timeStr} ${tzAbbr}`;
-    } catch (error) {
-      // If timezone is invalid, fall back to local time
-      return new Intl.DateTimeFormat('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      }).format(new Date(date));
-    }
-  };
 
   const isElapsed = (event: CalendarEvent) => {
     return new Date(event.end) < new Date();
@@ -98,7 +84,7 @@ export const TodayEvents: React.FC<TodayEventsProps> = React.memo(({ events }) =
                   <span className="all-day-badge">All Day</span>
                 ) : (
                   <>
-                    {formatTime(event.start, event.originalTimezone || event.timezone)} - {formatTime(event.end, event.originalTimezone || event.timezone)}
+                    {formatEventTime(event.start, event.originalTimezone || event.timezone, uiSettings.displayTimezone)} - {formatEventTime(event.end, event.originalTimezone || event.timezone, uiSettings.displayTimezone)}
                   </>
                 )}
               </div>

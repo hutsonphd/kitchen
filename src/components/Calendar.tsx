@@ -7,6 +7,7 @@ import { IconSettings, IconChevronLeft, IconChevronRight } from '@tabler/icons-r
 import { useCalendar } from '../contexts/CalendarContext';
 import { useCalendarHeight } from '../hooks/useCalendarHeight';
 import { TodayEvents } from './TodayEvents';
+import { formatEventTime } from '../utils/timezone';
 
 interface CalendarProps {
   onAdminClick: () => void;
@@ -25,47 +26,6 @@ function formatTimeAgo(date: Date): string {
   return `${days} day${days > 1 ? 's' : ''} ago`;
 }
 
-// Helper function to format time with timezone
-function formatTimeWithTimezone(date: Date, timezone?: string, allDay?: boolean): string {
-  if (allDay) {
-    // For all-day events, don't show time
-    return '';
-  }
-
-  if (!timezone) {
-    // No timezone info, use local time
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  }
-
-  try {
-    // Format time in the original timezone
-    const timeStr = date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: timezone
-    });
-
-    // Get timezone abbreviation (EST, PST, etc.)
-    const tzAbbr = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      timeZoneName: 'short'
-    }).formatToParts(date).find(part => part.type === 'timeZoneName')?.value || '';
-
-    return `${timeStr} ${tzAbbr}`;
-  } catch (error) {
-    // If timezone is invalid, fall back to local time
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  }
-}
 
 export const Calendar: React.FC<CalendarProps> = React.memo(({ onAdminClick }) => {
   const { sources, events, loading, lastSyncTime, isCacheData, fetchAllEvents, uiSettings, syncMetadata } = useCalendar();
@@ -149,7 +109,7 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
       start: event.start,
       end: event.end,
       allDay: event.allDay,
-      backgroundColor: event.backgroundColor || uiSettings.defaultEventBgColor,
+      backgroundColor: event.color || uiSettings.defaultEventBgColor,
       borderColor: event.color, // Use calendar color for border
       textColor: uiSettings.defaultEventTextColor,
       extendedProps: {
@@ -174,29 +134,31 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
         </h1>
         <div className="header-controls">
           {/* Sync status and loading indicator */}
-          {loading && (() => {
-            // Check if any source is retrying
-            const retryingSource = syncMetadata.find(m =>
-              !m.lastSyncSuccess && m.retryCount > 0 && m.retryCount < m.maxRetries
-            );
+          {(() => {
+            // Show loading state when syncing
+            if (loading) {
+              // Check if any source is retrying
+              const retryingSource = syncMetadata.find(m =>
+                !m.lastSyncSuccess && m.retryCount > 0 && m.retryCount < m.maxRetries
+              );
 
-            if (retryingSource) {
+              if (retryingSource) {
+                return (
+                  <div className="header-status">
+                    <div className="loading-spinner-small"></div>
+                    <span>Syncing... (Attempt {retryingSource.retryCount}/{retryingSource.maxRetries})</span>
+                  </div>
+                );
+              }
+
               return (
                 <div className="header-status">
                   <div className="loading-spinner-small"></div>
-                  <span>Syncing... (Attempt {retryingSource.retryCount}/{retryingSource.maxRetries})</span>
+                  <span>{isCacheData ? 'Updating...' : 'Loading...'}</span>
                 </div>
               );
             }
 
-            return (
-              <div className="header-status">
-                <div className="loading-spinner-small"></div>
-                <span>{isCacheData ? 'Updating...' : 'Loading...'}</span>
-              </div>
-            );
-          })()}
-          {!loading && (() => {
             // Check for failed syncs that have exceeded retry limit
             const failedSource = syncMetadata.find(m =>
               !m.lastSyncSuccess && m.retryCount >= m.maxRetries
@@ -210,8 +172,8 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
               );
             }
 
-            // Show normal sync time
-            if (isCacheData && lastSyncTime) {
+            // Always show sync status when not loading
+            if (lastSyncTime) {
               return (
                 <div className="header-status">
                   Last synced: {formatTimeAgo(lastSyncTime)}
@@ -219,7 +181,12 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
               );
             }
 
-            return null;
+            // Show if never synced
+            return (
+              <div className="header-status">
+                Never synced
+              </div>
+            );
           })()}
 
           <button
@@ -310,9 +277,9 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
                 };
               }
 
-              // For timed events, show time in original timezone
+              // For timed events, show time in display timezone
               if (timezone && originalStart) {
-                const timeStr = formatTimeWithTimezone(new Date(originalStart), timezone, false);
+                const timeStr = formatEventTime(new Date(originalStart), timezone, uiSettings.displayTimezone, false);
                 return {
                   html: `
                     <div class="fc-event-time">${timeStr}</div>

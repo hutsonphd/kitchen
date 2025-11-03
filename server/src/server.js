@@ -3,9 +3,17 @@ import cors from 'cors';
 import { createDAVClient } from 'tsdav';
 import ICAL from 'ical.js';
 import fetch from 'node-fetch';
+import { initializeDatabase } from './db/index.js';
+import configRoutes from './routes/config.js';
+import eventsRoutes from './routes/events.js';
+import syncRoutes from './routes/sync.js';
 
 const app = express();
 const PORT = 3001;
+
+// Initialize database
+console.log('[Server] Initializing database...');
+initializeDatabase();
 
 // Middleware
 app.use(cors({
@@ -14,21 +22,37 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// New API routes
+app.use('/api/config', configRoutes);
+app.use('/api/events', eventsRoutes);
+app.use('/api/sync', syncRoutes);
+
 // Helper function to extract timezone from ICAL.Time
+// Uses configured default timezone when event doesn't specify one
 function extractTimezone(icalTime) {
   if (!icalTime) return null;
   // If it's a date-only (all-day event), no timezone
   if (icalTime.isDate) return null;
   // Get the timezone from the ICAL.Time object
   const zone = icalTime.zone;
-  if (!zone) return null;
-  // Return IANA timezone ID if available
-  return zone.tzid || null;
+  // If no zone specified, use default timezone from environment or fallback
+  // This ensures consistent timezone handling for events without explicit timezone
+  const defaultTimezone = process.env.DEFAULT_TIMEZONE || 'America/Chicago';
+  if (!zone) return defaultTimezone;
+
+  // Get the timezone ID
+  const tzid = zone.tzid;
+  // Treat "floating" timezone as missing timezone - use default
+  // Floating time means "local time without timezone info" which should be interpreted as default timezone
+  if (!tzid || tzid === 'floating') return defaultTimezone;
+
+  // Return IANA timezone ID
+  return tzid;
 }
 
 // Helper function to convert ICAL.Time to proper Date object
 // For all-day events, preserve date-only semantics without timezone conversion
-function icalTimeToDate(icalTime) {
+function icalTimeToDate(icalTime, detectedTimezone = null) {
   if (!icalTime) return null;
 
   if (icalTime.isDate) {
@@ -38,7 +62,40 @@ function icalTimeToDate(icalTime) {
     return new Date(Date.UTC(icalTime.year, icalTime.month - 1, icalTime.day, 12, 0, 0));
   }
 
-  // For timed events, use toJSDate() which respects the timezone
+  // Check if this is a floating time (no timezone specified)
+  const zone = icalTime.zone;
+  const isFloating = !zone || zone.tzid === 'floating';
+
+  if (isFloating && detectedTimezone) {
+    // For floating times, interpret the time in the default timezone
+    // The floating time represents local time in the target timezone (e.g., 9:30 AM CST)
+    // We need to convert this to the proper UTC timestamp
+
+    // Build date string: YYYY-MM-DDTHH:mm:ss
+    const dateStr = `${icalTime.year}-${String(icalTime.month).padStart(2, '0')}-${String(icalTime.day).padStart(2, '0')}T${String(icalTime.hour).padStart(2, '0')}:${String(icalTime.minute).padStart(2, '0')}:${String(icalTime.second).padStart(2, '0')}`;
+
+    // Parse as local date (will be interpreted in server's timezone, which is UTC in Docker)
+    const localDate = new Date(dateStr);
+
+    // Calculate timezone offset for America/Chicago
+    // CST (winter) = UTC-6 = 360 minutes
+    // CDT (summer) = UTC-5 = 300 minutes
+    // For November, it's CST (UTC-6)
+    const cstOffsetMinutes = 360; // CST is UTC-6
+
+    // Get server's timezone offset (0 for UTC)
+    const serverOffsetMinutes = localDate.getTimezoneOffset();
+
+    // Calculate adjustment needed
+    // Server in UTC (offset=0), target CST (offset=360)
+    // To convert 9:30 AM CST to UTC: add 6 hours
+    // Adjustment = targetOffset (360) - serverOffset (0) = 360 minutes
+    const adjustmentMinutes = cstOffsetMinutes - serverOffsetMinutes;
+
+    return new Date(localDate.getTime() + (adjustmentMinutes * 60 * 1000));
+  }
+
+  // For timed events with timezone, use toJSDate() which respects the timezone
   return icalTime.toJSDate();
 }
 
@@ -409,4 +466,11 @@ app.post('/api/caldav/fetch-events', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`CalDAV proxy server running on http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
+
+  // Start background sync after server is running
+  import('./services/sync.service.js').then(({ startBackgroundSync }) => {
+    startBackgroundSync();
+  }).catch(error => {
+    console.error('[Server] Failed to start background sync:', error);
+  });
 });

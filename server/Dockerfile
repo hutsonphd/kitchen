@@ -12,6 +12,9 @@ RUN npm ci --only=production
 # Copy source files
 COPY src/ ./src/
 
+# Create data directory for SQLite database
+RUN mkdir -p /app/data
+
 EXPOSE 3001
 
 CMD ["npm", "start"]

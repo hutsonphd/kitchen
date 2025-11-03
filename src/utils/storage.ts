@@ -1,59 +1,9 @@
-import CryptoJS from 'crypto-js';
-import type { CalendarSource } from '../types';
 import type { UISettings } from '../types/settings.types';
 import { DEFAULT_UI_SETTINGS } from '../types/settings.types';
 
-const STORAGE_KEY = 'calendar_sources';
 const UI_SETTINGS_KEY = 'ui_settings';
-const ENCRYPTION_KEY = 'kitchen-kiosk-calendar-key'; // In production, use env variable
 
 export const storage = {
-  // Save calendar sources to localStorage with encrypted credentials
-  saveSources: (sources: CalendarSource[]): void => {
-    try {
-      const encrypted = sources.map(source => ({
-        ...source,
-        // Only encrypt password if auth is required
-        password: source.requiresAuth && source.password
-          ? CryptoJS.AES.encrypt(source.password, ENCRYPTION_KEY).toString()
-          : source.password
-      }));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(encrypted));
-    } catch (error) {
-      console.error('Failed to save calendar sources:', error);
-      throw new Error('Failed to save calendar configuration');
-    }
-  },
-
-  // Load calendar sources from localStorage and decrypt credentials
-  loadSources: (): CalendarSource[] => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return [];
-
-      const encrypted = JSON.parse(stored);
-      return encrypted.map((source: any) => ({
-        ...source,
-        // Only decrypt password if auth is required and password exists
-        password: source.requiresAuth && source.password
-          ? CryptoJS.AES.decrypt(source.password, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8)
-          : (source.password || ''),
-        lastFetched: source.lastFetched ? new Date(source.lastFetched) : undefined,
-        // Provide defaults for new fields
-        requiresAuth: source.requiresAuth ?? true,
-        sourceType: source.sourceType || 'caldav'
-      }));
-    } catch (error) {
-      console.error('Failed to load calendar sources:', error);
-      return [];
-    }
-  },
-
-  // Clear all stored calendar sources
-  clearSources: (): void => {
-    localStorage.removeItem(STORAGE_KEY);
-  },
-
   // Save UI settings to localStorage
   saveUISettings: (settings: UISettings): void => {
     try {

@@ -760,6 +760,15 @@ h1.month-year-title {
   box-shadow: none !important;
 }
 
+/* Ensure FullCalendar events use background color for fill */
+.fc-event {
+  border-width: 0.125rem !important;
+}
+
+.fc-timegrid-event .fc-event-main {
+  background-color: inherit !important;
+}
+
 /* Today Events Panel */
 .today-events-panel {
   width: 20rem;
