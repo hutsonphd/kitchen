@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import type { CalendarSource, CalendarEvent, CalendarContextType } from '../types';
 import type { UISettings } from '../types/settings.types';
 import type { SyncMetadata } from '../types/indexeddb.types';
 import { storage } from '../utils/storage';
 import * as syncService from '../services/sync.service';
 import { clearAllEvents as clearEventsFromDB, clearEventsBySource, deleteSyncMetadata } from '../services/indexeddb.service';
+import { getAvailableImages, isImageValid, type SlideshowImage } from '../services/staticImages.service';
 
 const CalendarContext = createContext<CalendarContextType | undefined>(undefined);
 
@@ -17,6 +18,19 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [isCacheData, setIsCacheData] = useState(false);
   const [uiSettings, setUISettings] = useState<UISettings>(storage.loadUISettings());
   const [syncMetadata, setSyncMetadata] = useState<SyncMetadata[]>([]);
+  const [slideshowActive, setSlideshowActive] = useState(false);
+  const [slideshowImages, setSlideshowImages] = useState<SlideshowImage[]>([]);
+
+  // Use ref to track sources without triggering fetchAllEvents re-creation
+  const sourcesRef = useRef<CalendarSource[]>([]);
+
+  // AbortController for cancelling in-flight requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Update sourcesRef whenever sources change
+  useEffect(() => {
+    sourcesRef.current = sources;
+  }, [sources]);
 
   // Load calendar sources from localStorage on mount
   useEffect(() => {
@@ -24,17 +38,40 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     setSources(loadedSources);
   }, []);
 
-  // Save sources to localStorage whenever they change
+  // Debounced save sources to localStorage (prevents blocking on rapid changes)
   useEffect(() => {
-    if (sources.length > 0) {
+    if (sources.length === 0) return;
+
+    const timeoutId = setTimeout(() => {
       storage.saveSources(sources);
-    }
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timeoutId);
   }, [sources]);
 
-  // Save UI settings to localStorage whenever they change
+  // Debounced save UI settings to localStorage
   useEffect(() => {
-    storage.saveUISettings(uiSettings);
+    const timeoutId = setTimeout(() => {
+      storage.saveUISettings(uiSettings);
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timeoutId);
   }, [uiSettings]);
+
+  // Load slideshow images on mount
+  useEffect(() => {
+    const loadImages = async () => {
+      try {
+        const images = await getAvailableImages();
+        // Only include valid images for slideshow display
+        const validImages = images.filter(isImageValid);
+        setSlideshowImages(validImages);
+      } catch (err) {
+        console.error('Failed to load slideshow images:', err);
+      }
+    };
+    loadImages();
+  }, []);
 
   const addSource = useCallback((source: Omit<CalendarSource, 'id'>) => {
     const newSource: CalendarSource = {
@@ -81,14 +118,24 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
   const fetchAllEvents = useCallback(async (forceRefresh: boolean = false) => {
     setError(null);
 
+    // Cancel any previous in-flight requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
-      // Dummy date range for API compatibility (not used in fullSync mode)
-      // For incremental sync, we'll use a wide range (1 year back, 1 year forward)
+      // Memory optimized date range: 1 month back, 3 months forward
+      // Reduces from 2 years (~75% reduction in event count and memory)
+      // Sufficient for typical kiosk use case
       const now = new Date();
       const startDate = new Date(now);
-      startDate.setFullYear(now.getFullYear() - 1);
+      startDate.setMonth(now.getMonth() - 1);
       const endDate = new Date(now);
-      endDate.setFullYear(now.getFullYear() + 1);
+      endDate.setMonth(now.getMonth() + 3);
       const dateRange = { startDate, endDate };
 
       // Check cache status
@@ -99,7 +146,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
       const allMetadata = await syncService.getAllSyncMetadata();
       setSyncMetadata(allMetadata); // Update sync metadata state
 
-      const needsFullSync = !hasCache || sources.some(source => {
+      const needsFullSync = !hasCache || sourcesRef.current.some(source => {
         const meta = allMetadata.find(m => m.sourceId === source.id);
         return !meta || !meta.isFullSyncCompleted;
       });
@@ -110,7 +157,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
         setIsCacheData(false);
 
         const { events: freshEvents, errors } = await syncService.syncAllSources(
-          sources,
+          sourcesRef.current,
           dateRange,
           true, // isInitialSync = true (60 second timeout)
           true  // fullSync = true (fetch all events)
@@ -145,7 +192,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
       setLastSyncTime(cacheStatus.lastSyncTime);
 
       // Determine if sync is needed
-      const needsSync = await syncService.shouldSync(sources, forceRefresh);
+      const needsSync = await syncService.shouldSync(sourcesRef.current, forceRefresh);
 
       if (needsSync) {
         setLoading(true); // Show subtle "updating" indicator
@@ -153,7 +200,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
         // For incremental sync, use fullSync to get any new events
         // In the future, this could use CalDAV sync-token for true incremental sync
         const { events: freshEvents, errors } = await syncService.syncAllSources(
-          sources,
+          sourcesRef.current,
           dateRange,
           false, // isInitialSync = false (45 second timeout)
           true   // fullSync = true (for now, always fetch all events)
@@ -180,12 +227,32 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
       }
     } catch (err) {
+      // Don't set error if request was cancelled
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('Fetch cancelled');
+        return;
+      }
+
       const errorMsg = err instanceof Error ? err.message : 'Failed to fetch events';
       setError(errorMsg);
       console.error('Error fetching events:', err);
       setLoading(false);
+    } finally {
+      // Clear abort controller reference if it's the current one
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
     }
-  }, [sources]);
+  }, []); // Empty dependencies - uses sourcesRef.current to avoid re-creation
+
+  // Cancel any in-flight requests when component unmounts
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -236,7 +303,28 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [fetchAllEvents]);
 
-  const value: CalendarContextType = {
+  const startSlideshow = useCallback(() => {
+    if (slideshowImages.length > 0 && uiSettings.slideshowEnabled) {
+      setSlideshowActive(true);
+    }
+  }, [slideshowImages.length, uiSettings.slideshowEnabled]);
+
+  const stopSlideshow = useCallback(() => {
+    setSlideshowActive(false);
+  }, []);
+
+  const refreshSlideshowImages = useCallback(async () => {
+    try {
+      const images = await getAvailableImages();
+      setSlideshowImages(images);
+    } catch (err) {
+      console.error('Failed to refresh slideshow images:', err);
+      setError('Failed to refresh slideshow images');
+    }
+  }, [setError]);
+
+  // Memoize context value to prevent unnecessary re-renders of all consumers
+  const value: CalendarContextType = useMemo(() => ({
     sources,
     events,
     loading,
@@ -245,6 +333,8 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     isCacheData,
     uiSettings,
     syncMetadata,
+    slideshowActive,
+    slideshowImages,
     addSource,
     updateSource,
     removeSource,
@@ -255,7 +345,34 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
     clearAllEvents: clearAllEventsHandler,
     resetEverything: resetEverythingHandler,
     resetRetry: resetRetryHandler,
-  };
+    startSlideshow,
+    stopSlideshow,
+    refreshSlideshowImages,
+  }), [
+    sources,
+    events,
+    loading,
+    error,
+    lastSyncTime,
+    isCacheData,
+    uiSettings,
+    syncMetadata,
+    slideshowActive,
+    slideshowImages,
+    addSource,
+    updateSource,
+    removeSource,
+    updateCalendar,
+    fetchAllEvents,
+    updateUISettings,
+    clearError,
+    clearAllEventsHandler,
+    resetEverythingHandler,
+    resetRetryHandler,
+    startSlideshow,
+    stopSlideshow,
+    refreshSlideshowImages,
+  ]);
 
   return (
     <CalendarContext.Provider value={value}>

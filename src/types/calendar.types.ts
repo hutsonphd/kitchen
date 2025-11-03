@@ -1,5 +1,6 @@
 import type { UISettings } from './settings.types';
 import type { SyncMetadata } from './indexeddb.types';
+import type { SlideshowImage } from '../services/staticImages.service';
 
 export interface Calendar {
   id: string;
@@ -49,6 +50,8 @@ export interface CalendarContextType {
   isCacheData: boolean;
   uiSettings: UISettings;
   syncMetadata: SyncMetadata[];
+  slideshowActive: boolean;
+  slideshowImages: SlideshowImage[];
   addSource: (source: Omit<CalendarSource, 'id'>) => void;
   updateSource: (id: string, source: Partial<CalendarSource>) => void;
   removeSource: (id: string) => void;
@@ -59,6 +62,9 @@ export interface CalendarContextType {
   clearAllEvents: () => Promise<void>;
   resetEverything: () => Promise<void>;
   resetRetry: (sourceId: string) => Promise<void>;
+  startSlideshow: () => void;
+  stopSlideshow: () => void;
+  refreshSlideshowImages: () => Promise<void>;
 }
 
 export interface CalDAVCredentials {

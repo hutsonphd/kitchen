@@ -65,7 +65,7 @@ async function parseICSData(icsData, calendarName, calendarUrl, timeMin, timeMax
         const expand = event.iterator(startDate);
         let next;
         let occurrenceCount = 0;
-        const maxOccurrences = 1000; // Safety limit to prevent infinite loops
+        const maxOccurrences = 500; // Safety limit to prevent infinite loops and reduce memory usage
 
         while ((next = expand.next()) && occurrenceCount < maxOccurrences) {
           // If we have a time range, filter occurrences

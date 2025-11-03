@@ -102,23 +102,28 @@ export async function saveEvents(events: CalendarEvent[], sourceId: string): Pro
 
   try {
     const db = await getDB();
-    const tx = db.transaction('events', 'readwrite');
-    const store = tx.objectStore('events');
-
     const syncTime = new Date();
 
-    // Add or update events
-    const promises = events.map(event => {
-      const storedEvent: StoredCalendarEvent = {
-        ...event,
-        sourceId,
-        syncTime,
-      };
-      return store.put(storedEvent);
-    });
+    // Batch events in groups of 50 for better performance
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < events.length; i += BATCH_SIZE) {
+      const batch = events.slice(i, i + BATCH_SIZE);
+      const tx = db.transaction('events', 'readwrite');
+      const store = tx.objectStore('events');
 
-    await Promise.all(promises);
-    await tx.done;
+      // Process batch
+      const promises = batch.map(event => {
+        const storedEvent: StoredCalendarEvent = {
+          ...event,
+          sourceId,
+          syncTime,
+        };
+        return store.put(storedEvent);
+      });
+
+      await Promise.all(promises);
+      await tx.done;
+    }
   } catch (error) {
     console.error('Failed to save events to IndexedDB:', error);
     // Don't throw - cache failure shouldn't break the app

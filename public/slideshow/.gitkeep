@@ -1,0 +1,8 @@
+# This directory contains slideshow images for the kitchen kiosk
+#
+# Image Requirements:
+# - Resolution: 3840x2160 (4K UHD)
+# - Maximum file size: 2MB
+# - Supported formats: JPG, PNG, WebP
+#
+# The admin panel will validate images and display warnings for non-compliant files.

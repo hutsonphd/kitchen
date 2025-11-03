@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -67,11 +67,14 @@ function formatTimeWithTimezone(date: Date, timezone?: string, allDay?: boolean)
   }
 }
 
-export const Calendar: React.FC<CalendarProps> = ({ onAdminClick }) => {
+export const Calendar: React.FC<CalendarProps> = React.memo(({ onAdminClick }) => {
   const { sources, events, loading, lastSyncTime, isCacheData, fetchAllEvents, uiSettings, syncMetadata } = useCalendar();
   const calendarRef = useRef<FullCalendar>(null);
   const { calendarHeight, slotDuration, slotHeight } = useCalendarHeight();
   const [monthYear, setMonthYear] = useState('');
+
+  // Track previous source IDs to detect when sources actually change (not just metadata updates)
+  const prevSourceIdsRef = useRef<string>('');
 
   // Apply UI settings to CSS variables
   useEffect(() => {
@@ -79,10 +82,26 @@ export const Calendar: React.FC<CalendarProps> = ({ onAdminClick }) => {
     document.documentElement.style.setProperty('--color-today-text', uiSettings.todayColumnTextColor);
   }, [uiSettings]);
 
-  // Fetch events on mount and when sources change
+  // Update month/year display (memoized to prevent recreation)
+  const updateMonthYear = useCallback(() => {
+    if (calendarRef.current) {
+      const currentDate = calendarRef.current.getApi().view.currentStart;
+      const month = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate);
+      const year = new Intl.DateTimeFormat('en-US', { year: 'numeric' }).format(currentDate);
+      setMonthYear(`${month}|${year}`); // Using | as separator for later splitting
+    }
+  }, []);
+
+  // Fetch events on mount and when sources change (by ID, not metadata)
   useEffect(() => {
-    fetchAllEvents();
-  }, [sources]);
+    const currentSourceIds = sources.map(s => s.id).sort().join(',');
+
+    // Only fetch if source IDs actually changed, not just lastFetched or other metadata
+    if (currentSourceIds !== prevSourceIdsRef.current) {
+      fetchAllEvents();
+      prevSourceIdsRef.current = currentSourceIds;
+    }
+  }, [sources, fetchAllEvents]);
 
   // Navigate to current week and set initial month/year
   useEffect(() => {
@@ -91,17 +110,7 @@ export const Calendar: React.FC<CalendarProps> = ({ onAdminClick }) => {
       calendarApi.today();
       updateMonthYear();
     }
-  }, []);
-
-  // Update month/year display
-  const updateMonthYear = () => {
-    if (calendarRef.current) {
-      const currentDate = calendarRef.current.getApi().view.currentStart;
-      const month = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate);
-      const year = new Intl.DateTimeFormat('en-US', { year: 'numeric' }).format(currentDate);
-      setMonthYear(`${month}|${year}`); // Using | as separator for later splitting
-    }
-  };
+  }, [updateMonthYear]);
 
   // Navigation handlers
   const handlePrevWeek = () => {
@@ -132,23 +141,27 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
   };
 
   // Convert CalendarEvent to FullCalendar event format
-  const fullCalendarEvents = events.map(event => ({
-    id: event.id,
-    title: event.title,
-    start: event.start,
-    end: event.end,
-    allDay: event.allDay,
-    backgroundColor: event.backgroundColor || uiSettings.defaultEventBgColor,
-    borderColor: event.color, // Use calendar color for border
-    textColor: uiSettings.defaultEventTextColor,
-    extendedProps: {
-      description: event.description,
-      location: event.location,
-      calendarId: event.calendarId,
-      timezone: event.originalTimezone || event.timezone, // Store timezone for display
-      originalStart: event.start, // Keep original dates for timezone conversion
-    },
-  }));
+  // Memoized to prevent recreating event objects on every render
+  const fullCalendarEvents = useMemo(() =>
+    events.map(event => ({
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      allDay: event.allDay,
+      backgroundColor: event.backgroundColor || uiSettings.defaultEventBgColor,
+      borderColor: event.color, // Use calendar color for border
+      textColor: uiSettings.defaultEventTextColor,
+      extendedProps: {
+        description: event.description,
+        location: event.location,
+        calendarId: event.calendarId,
+        timezone: event.originalTimezone || event.timezone, // Store timezone for display
+        originalStart: event.start, // Keep original dates for timezone conversion
+      },
+    })),
+    [events, uiSettings.defaultEventBgColor, uiSettings.defaultEventTextColor]
+  );
 
   return (
     <div className="calendar-layout">
@@ -316,4 +329,4 @@ ${event.extendedProps.location ? `\nLocation: ${event.extendedProps.location}` :
       </div>
     </div>
   );
-};
+});

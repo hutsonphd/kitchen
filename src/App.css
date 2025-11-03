@@ -961,3 +961,293 @@ h1.month-year-title {
   color: var(--color-text-secondary);
   font-family: monospace;
 }
+
+/* Slideshow Styles */
+.slideshow-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.slideshow-image-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+
+  /* GPU acceleration hints */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+}
+
+.slideshow-image {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+
+  /* Image rendering optimization */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+
+  /* Prevent flickering */
+  transform: translateZ(0);
+}
+
+.slideshow-info {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  text-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.5);
+}
+
+.slideshow-counter {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.slideshow-timer {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.slideshow-progress-bar {
+  width: 20rem;
+  height: 0.25rem;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 0.125rem;
+  overflow: hidden;
+}
+
+.slideshow-progress-fill {
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.8);
+  transform-origin: left center;
+  transition: transform 100ms linear;
+}
+
+.slideshow-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.slideshow-loading-text {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  text-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.5);
+}
+
+/* Slideshow Admin Styles */
+.slideshow-admin {
+  padding: 1.5rem;
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--border-radius);
+  margin-bottom: 1.5rem;
+}
+
+.slideshow-admin h3 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.25rem;
+  color: var(--color-text);
+}
+
+.slideshow-admin h4 {
+  margin: 1.5rem 0 0.75rem 0;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.slideshow-setting {
+  margin-bottom: 1.5rem;
+}
+
+.slideshow-setting label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.slideshow-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.slideshow-toggle input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+}
+
+.slideshow-setting input[type="range"] {
+  width: 100%;
+  max-width: 20rem;
+  cursor: pointer;
+}
+
+.slideshow-setting-value {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.slideshow-upload-section {
+  margin-top: 1.5rem;
+}
+
+.slideshow-upload-controls {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.slideshow-upload-button {
+  padding: 0.5rem 1rem;
+  background-color: var(--color-primary);
+  color: var(--color-bg-white);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: inline-block;
+}
+
+.slideshow-upload-button:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.slideshow-test-button {
+  padding: 0.5rem 1rem;
+  background-color: var(--color-secondary);
+  color: var(--color-text-secondary);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.slideshow-test-button:hover:not(:disabled) {
+  background-color: var(--color-secondary-hover);
+}
+
+.slideshow-test-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.slideshow-error {
+  padding: 0.75rem;
+  background-color: rgba(255, 0, 0, 0.1);
+  color: var(--color-danger);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.875rem;
+}
+
+.slideshow-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.slideshow-image-item {
+  position: relative;
+  background-color: var(--color-bg);
+  border-radius: var(--border-radius-sm);
+  overflow: hidden;
+  aspect-ratio: 1;
+}
+
+.slideshow-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.slideshow-image-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  padding: 0.75rem 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.slideshow-image-name {
+  font-size: 0.75rem;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slideshow-image-size {
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.slideshow-delete-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: rgba(255, 0, 0, 0.8);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.slideshow-delete-button:hover {
+  background-color: rgba(255, 0, 0, 1);
+}
+
+.slideshow-empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  background-color: var(--color-bg);
+  border-radius: var(--border-radius-sm);
+}

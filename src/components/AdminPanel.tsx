@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useCalendar } from '../contexts/CalendarContext';
 import { CalendarForm } from './CalendarForm';
+import { SlideshowAdmin } from './SlideshowAdmin';
 import type { CalendarSource } from '../types';
 
 interface AdminPanelProps {
@@ -139,33 +140,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
               </div>
             ) : (
               <div className="calendars-list">
-                {sources.map(source => (
-                  <div key={source.id} className={`calendar-item ${!source.enabled ? 'disabled' : ''}`}>
-                    <div className="calendar-info">
-                      <div className="calendar-details">
-                        <h3>{source.name}</h3>
-                        <p className="calendar-url">{source.url}</p>
-                        <p className="calendar-username">Username: {source.username}</p>
-                        {source.calendars.length > 0 && (
-                          <div className="source-calendars-preview">
-                            <p className="calendar-meta">
-                              {source.calendars.filter(c => c.enabled).length} of {source.calendars.length} calendars enabled:
-                            </p>
-                            <div className="calendar-colors-preview">
-                              {source.calendars.filter(c => c.enabled).slice(0, 5).map(cal => (
-                                <span
-                                  key={cal.id}
-                                  className="color-dot"
-                                  style={{ backgroundColor: cal.color }}
-                                  title={cal.name}
-                                />
-                              ))}
-                              {source.calendars.filter(c => c.enabled).length > 5 && (
-                                <span className="more-calendars">+{source.calendars.filter(c => c.enabled).length - 5}</span>
-                              )}
+                {sources.map(source => {
+                  // Filter enabled calendars once to avoid redundant filtering
+                  const enabledCalendars = source.calendars.filter(c => c.enabled);
+
+                  return (
+                    <div key={source.id} className={`calendar-item ${!source.enabled ? 'disabled' : ''}`}>
+                      <div className="calendar-info">
+                        <div className="calendar-details">
+                          <h3>{source.name}</h3>
+                          <p className="calendar-url">{source.url}</p>
+                          <p className="calendar-username">Username: {source.username}</p>
+                          {source.calendars.length > 0 && (
+                            <div className="source-calendars-preview">
+                              <p className="calendar-meta">
+                                {enabledCalendars.length} of {source.calendars.length} calendars enabled:
+                              </p>
+                              <div className="calendar-colors-preview">
+                                {enabledCalendars.slice(0, 5).map(cal => (
+                                  <span
+                                    key={cal.id}
+                                    className="color-dot"
+                                    style={{ backgroundColor: cal.color }}
+                                    title={cal.name}
+                                  />
+                                ))}
+                                {enabledCalendars.length > 5 && (
+                                  <span className="more-calendars">+{enabledCalendars.length - 5}</span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                         {source.lastFetched && (
                           <p className="calendar-meta">
                             Last updated: {new Date(source.lastFetched).toLocaleString()}
@@ -198,8 +203,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                         Delete
                       </button>
                     </div>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -294,6 +300,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Slideshow Settings Section */}
+            {!showForm && (
+              <SlideshowAdmin />
             )}
 
             {/* Data Management Section */}

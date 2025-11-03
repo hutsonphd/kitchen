@@ -5,7 +5,7 @@ interface TodayEventsProps {
   events: CalendarEvent[];
 }
 
-export const TodayEvents: React.FC<TodayEventsProps> = ({ events }) => {
+export const TodayEvents: React.FC<TodayEventsProps> = React.memo(({ events }) => {
   const todayEvents = useMemo(() => {
     const now = new Date();
     const todayYear = now.getFullYear();
@@ -119,4 +119,4 @@ export const TodayEvents: React.FC<TodayEventsProps> = ({ events }) => {
       </div>
     </div>
   );
-};
+});

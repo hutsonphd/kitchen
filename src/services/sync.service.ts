@@ -12,6 +12,37 @@ export const BACKGROUND_SYNC_TIMEOUT = 45 * 1000; // 45 seconds for background u
 export const MAX_RETRIES = 3; // Maximum number of retry attempts before stopping
 export const RETRY_DELAYS = [1 * 60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000]; // 1min, 5min, 15min exponential backoff
 
+// Sync lock management
+interface SyncLock {
+  promise: Promise<{ events: CalendarEvent[]; error?: string }>;
+  timestamp: number;
+}
+
+const syncLocks = new Map<string, SyncLock>();
+const LOCK_TIMEOUT = 30000; // 30 seconds - reduced from 2min for faster cleanup and less memory
+
+/**
+ * Clean up stale sync locks to prevent memory leaks
+ */
+function cleanupStaleLocks(): void {
+  const now = Date.now();
+  const staleLocks: string[] = [];
+
+  for (const [sourceId, lock] of syncLocks.entries()) {
+    if (now - lock.timestamp > LOCK_TIMEOUT) {
+      staleLocks.push(sourceId);
+    }
+  }
+
+  staleLocks.forEach(sourceId => {
+    console.warn(`Cleaning up stale sync lock for ${sourceId}`);
+    syncLocks.delete(sourceId);
+  });
+}
+
+// Periodic cleanup of stale locks every 30 seconds
+setInterval(cleanupStaleLocks, LOCK_TIMEOUT);
+
 /**
  * Check if a source should be retried based on retry metadata
  */
@@ -91,6 +122,45 @@ async function fetchWithTimeout(
 }
 
 /**
+ * Acquire sync lock for a source, or return existing sync if one is in progress
+ */
+function acquireSyncLock(
+  sourceId: string,
+  syncPromise: Promise<{ events: CalendarEvent[]; error?: string }>
+): Promise<{ events: CalendarEvent[]; error?: string }> {
+  // Check for existing lock
+  const existingLock = syncLocks.get(sourceId);
+
+  if (existingLock) {
+    // Check if lock is stale (older than timeout)
+    const lockAge = Date.now() - existingLock.timestamp;
+    if (lockAge < LOCK_TIMEOUT) {
+      console.log(`Sync already in progress for source ${sourceId}, returning existing sync`);
+      return existingLock.promise;
+    } else {
+      // Lock is stale, remove it
+      console.warn(`Stale sync lock detected for source ${sourceId}, removing`);
+      syncLocks.delete(sourceId);
+    }
+  }
+
+  // Create new lock
+  const lock: SyncLock = {
+    promise: syncPromise,
+    timestamp: Date.now(),
+  };
+
+  syncLocks.set(sourceId, lock);
+
+  // Remove lock when sync completes (success or failure)
+  lock.promise.finally(() => {
+    syncLocks.delete(sourceId);
+  });
+
+  return lock.promise;
+}
+
+/**
  * Sync events for a single source
  */
 export async function syncSource(
@@ -99,20 +169,22 @@ export async function syncSource(
   timeout: number,
   fullSync: boolean = false
 ): Promise<{ events: CalendarEvent[]; error?: string }> {
-  // Get existing metadata to check retry status
-  const existingMetadata = await indexedDB.getSyncMetadata(source.id);
+  // Create the actual sync operation
+  const syncOperation = async (): Promise<{ events: CalendarEvent[]; error?: string }> => {
+    // Get existing metadata to check retry status
+    const existingMetadata = await indexedDB.getSyncMetadata(source.id);
 
-  // Check if we should skip this sync due to retry limits
-  if (existingMetadata && !shouldRetry(existingMetadata)) {
-    // Return cached events if available, or empty array
-    const cachedEvents = await indexedDB.loadEventsBySource(source.id);
-    return {
-      events: cachedEvents,
-      error: existingMetadata.errorMessage || 'Sync failed - retry limit exceeded'
-    };
-  }
+    // Check if we should skip this sync due to retry limits
+    if (existingMetadata && !shouldRetry(existingMetadata)) {
+      // Return cached events if available, or empty array
+      const cachedEvents = await indexedDB.loadEventsBySource(source.id);
+      return {
+        events: cachedEvents,
+        error: existingMetadata.errorMessage || 'Sync failed - retry limit exceeded'
+      };
+    }
 
-  try {
+    try {
     const events = await fetchWithTimeout(source, dateRange, timeout, fullSync);
 
     // Save to cache
@@ -163,7 +235,11 @@ export async function syncSource(
     // Return cached events if available
     const cachedEvents = await indexedDB.loadEventsBySource(source.id);
     return { events: cachedEvents, error: errorMessage };
-  }
+    }
+  };
+
+  // Acquire lock and perform sync
+  return acquireSyncLock(source.id, syncOperation());
 }
 
 /**
