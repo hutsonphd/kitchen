@@ -32,39 +32,68 @@ async function proxyRequest<T>(endpoint: string, data: any): Promise<T> {
  */
 export async function fetchCalendarEvents(
   source: CalendarSource,
-  options: FetchEventsOptions
+  options: FetchEventsOptions,
+  fullSync: boolean = false
 ): Promise<CalendarEvent[]> {
   try {
     // Only fetch from enabled calendars
     const enabledCalendars = source.calendars.filter(cal => cal.enabled);
 
     if (enabledCalendars.length === 0) {
+      console.warn(`No enabled calendars for source "${source.name}". Total calendars: ${source.calendars.length}`);
+      source.calendars.forEach(cal => {
+        console.log(`  - ${cal.name}: enabled=${cal.enabled}`);
+      });
       return [];
     }
+
+    console.log(`Fetching from ${enabledCalendars.length}/${source.calendars.length} enabled calendars in source "${source.name}"`);
+    enabledCalendars.forEach(cal => {
+      console.log(`  - ${cal.name} (${cal.calendarUrl})`);
+    });
 
     // Get calendar names for filtering on the backend
     const selectedCalendarNames = enabledCalendars.map(cal => cal.name);
 
-    const response = await proxyRequest<{ events: any[] }>('/api/caldav/fetch-events', {
+    const requestBody: any = {
       url: source.url,
       username: source.username,
       password: source.password,
-      timeMin: options.startDate.toISOString(),
-      timeMax: options.endDate.toISOString(),
       selectedCalendars: selectedCalendarNames,
       sourceType: source.sourceType,
       requiresAuth: source.requiresAuth,
-    });
+      fullSync: fullSync,
+    };
 
-    // Create a lookup map for calendar colors by URL
-    const calendarColorMap = new Map(
+    // Only add time range if not doing full sync
+    if (!fullSync) {
+      requestBody.timeMin = options.startDate.toISOString();
+      requestBody.timeMax = options.endDate.toISOString();
+    }
+
+    const response = await proxyRequest<{ events: any[] }>('/api/caldav/fetch-events', requestBody);
+
+    // Create a lookup map for calendar colors by URL and by name
+    const calendarByUrlMap = new Map(
       enabledCalendars.map(cal => [cal.calendarUrl, cal])
+    );
+    const calendarByNameMap = new Map(
+      enabledCalendars.map(cal => [cal.name, cal])
     );
 
     // Transform events from proxy to match CalendarEvent format
     const events: CalendarEvent[] = response.events.map((event: any) => {
-      // Find the calendar this event belongs to
-      const calendar = calendarColorMap.get(event.calendarUrl);
+      // Find the calendar this event belongs to - try URL first, then name
+      let calendar = calendarByUrlMap.get(event.calendarUrl);
+
+      if (!calendar && event.calendarName) {
+        calendar = calendarByNameMap.get(event.calendarName);
+      }
+
+      if (!calendar) {
+        console.warn(`Could not match event "${event.title}" (calendarUrl: ${event.calendarUrl}, calendarName: ${event.calendarName}) to any enabled calendar. Using fallback.`);
+      }
+
       const color = calendar?.color || source.calendars[0]?.color || '#3788d8';
       const calendarId = calendar?.id || source.id;
 

@@ -3,7 +3,7 @@ import type { CalendarEvent } from '../types';
 import type { StoredCalendarEvent, SyncMetadata, CacheStatus } from '../types/indexeddb.types';
 
 const DB_NAME = 'CalendarKioskDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Updated for sync token support
 const CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 interface CalendarDB extends DBSchema {
@@ -13,7 +13,8 @@ interface CalendarDB extends DBSchema {
     indexes: {
       'by-source': string;
       'by-calendar': string;
-      'by-date': Date;
+      'by-start': Date;
+      'by-end': Date;
     };
   };
   syncMetadata: {
@@ -49,13 +50,31 @@ async function getDB(): Promise<IDBPDatabase<CalendarDB>> {
 
   try {
     dbInstance = await openDB<CalendarDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion, _newVersion, transaction) {
         // Create events store
         if (!db.objectStoreNames.contains('events')) {
           const eventStore = db.createObjectStore('events', { keyPath: 'id' });
           eventStore.createIndex('by-source', 'sourceId');
           eventStore.createIndex('by-calendar', 'calendarId');
-          eventStore.createIndex('by-date', 'start');
+          eventStore.createIndex('by-start', 'start');
+          eventStore.createIndex('by-end', 'end');
+        } else if (oldVersion < 2) {
+          // Upgrade from version 1: add new indexes
+          const eventStore = transaction.objectStore('events');
+
+          // Remove old index if it exists (using type assertion for legacy index name)
+          const indexNames = eventStore.indexNames as DOMStringList;
+          if (indexNames.contains('by-date')) {
+            eventStore.deleteIndex('by-date' as any);
+          }
+
+          // Add new indexes
+          if (!indexNames.contains('by-start')) {
+            eventStore.createIndex('by-start', 'start');
+          }
+          if (!indexNames.contains('by-end')) {
+            eventStore.createIndex('by-end', 'end');
+          }
         }
 
         // Create sync metadata store

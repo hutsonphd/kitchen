@@ -41,10 +41,11 @@ export async function shouldSync(_sources: CalendarSource[], forceRefresh: boole
 async function fetchWithTimeout(
   source: CalendarSource,
   options: FetchEventsOptions,
-  timeout: number
+  timeout: number,
+  fullSync: boolean = false
 ): Promise<CalendarEvent[]> {
   return Promise.race([
-    fetchCalendarEvents(source, options),
+    fetchCalendarEvents(source, options, fullSync),
     new Promise<CalendarEvent[]>((_, reject) =>
       setTimeout(() => reject(new Error('Fetch timeout')), timeout)
     ),
@@ -57,22 +58,26 @@ async function fetchWithTimeout(
 export async function syncSource(
   source: CalendarSource,
   dateRange: { startDate: Date; endDate: Date },
-  timeout: number
+  timeout: number,
+  fullSync: boolean = false
 ): Promise<{ events: CalendarEvent[]; error?: string }> {
   try {
-    const events = await fetchWithTimeout(source, dateRange, timeout);
+    const events = await fetchWithTimeout(source, dateRange, timeout, fullSync);
 
     // Save to cache
     await indexedDB.saveEvents(events, source.id);
+
+    // Get existing metadata to preserve sync token
+    const existingMetadata = await indexedDB.getSyncMetadata(source.id);
 
     // Save sync metadata
     const metadata: SyncMetadata = {
       sourceId: source.id,
       lastSyncTime: new Date(),
       lastSyncSuccess: true,
-      dateRangeStart: dateRange.startDate,
-      dateRangeEnd: dateRange.endDate,
+      isFullSyncCompleted: fullSync || existingMetadata?.isFullSyncCompleted || false,
       eventCount: events.length,
+      syncToken: existingMetadata?.syncToken, // Preserve existing sync token for now
     };
     await indexedDB.saveSyncMetadata(metadata);
 
@@ -80,15 +85,18 @@ export async function syncSource(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
+    // Get existing metadata to preserve fields
+    const existingMetadata = await indexedDB.getSyncMetadata(source.id);
+
     // Save error to metadata
     const metadata: SyncMetadata = {
       sourceId: source.id,
       lastSyncTime: new Date(),
       lastSyncSuccess: false,
-      dateRangeStart: dateRange.startDate,
-      dateRangeEnd: dateRange.endDate,
+      isFullSyncCompleted: existingMetadata?.isFullSyncCompleted || false,
       eventCount: 0,
       errorMessage,
+      syncToken: existingMetadata?.syncToken,
     };
     await indexedDB.saveSyncMetadata(metadata);
 
@@ -102,7 +110,8 @@ export async function syncSource(
 export async function syncAllSources(
   sources: CalendarSource[],
   dateRange: { startDate: Date; endDate: Date },
-  isInitialSync: boolean = false
+  isInitialSync: boolean = false,
+  fullSync: boolean = false
 ): Promise<{ events: CalendarEvent[]; errors: string[] }> {
   // Filter to enabled sources with at least one enabled calendar
   const enabledSources = sources.filter(s =>
@@ -118,7 +127,7 @@ export async function syncAllSources(
 
   // Sync all sources in parallel
   const results = await Promise.all(
-    enabledSources.map(source => syncSource(source, dateRange, timeout))
+    enabledSources.map(source => syncSource(source, dateRange, timeout, fullSync))
   );
 
   // Collect events and errors
@@ -146,6 +155,13 @@ export async function loadFromCache(): Promise<CalendarEvent[]> {
  */
 export async function getCacheInfo() {
   return await indexedDB.getCacheStatus();
+}
+
+/**
+ * Get all sync metadata
+ */
+export async function getAllSyncMetadata() {
+  return await indexedDB.getAllSyncMetadata();
 }
 
 /**
